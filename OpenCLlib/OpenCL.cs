@@ -261,12 +261,18 @@ namespace OpenCLlib
 			this.OpenCLBody = OpenCLBody;
 			this.EntryPoint = EntryPoint;
 			ComputeProgram program = new ComputeProgram(context, OpenCLBody);
+
 			try
 			{
 				program.Build(null, null, null, IntPtr.Zero);
 				kernel = program.CreateKernel(EntryPoint);
 			}
 			catch (BuildProgramFailureComputeException)
+			{
+				string message = program.GetBuildLog(Accelerator.Device);
+				throw new ArgumentException(message);
+			}
+			catch(ComputeException)
 			{
 				string message = program.GetBuildLog(Accelerator.Device);
 				throw new ArgumentException(message);
