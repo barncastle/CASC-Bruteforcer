@@ -18,9 +18,9 @@ namespace CASCBruteforcer.Bruteforcers
 {
 	class Jenkins96 : IHash
 	{
-		const string LISTFILE_URL = "https://bnet.marlam.in/listfile.php?unk=1";
 		const long GLOBAL_WORKSIZE = uint.MaxValue; // sizeof(size_t) usually uint
 
+		private ListfileHandler ListfileHandler;
 		private ComputeDeviceTypes ComputeDevice;
 		private string[] Masks;
 		private HashSet<ulong> TargetHashes;
@@ -65,11 +65,10 @@ namespace CASCBruteforcer.Bruteforcers
 			// check for mirrored flag
 			IsMirrored = (args.Length > 3 && args[3].Trim() == "1");
 
-			// check for listfile and sort out the target hashes
-			ParseHashes();
-
-			if (TargetHashes.Count <= 1)
-				throw new ArgumentException("Unknown listfile is missing or empty");
+			// grab any listfile filters
+			string product = args.Length > 4 ? args[4] : "";
+			string exclusions = args.Length > 5 ? args[5] : "";
+			ListfileHandler = new ListfileHandler(product, exclusions);
 
 			ResultQueue = new Queue<ulong>();
 			ResultStrings = new HashSet<string>();
@@ -112,6 +111,7 @@ namespace CASCBruteforcer.Bruteforcers
 		private void Run(int m)
 		{
 			string mask = Masks[m];
+			ParseHashes(mask);
 
 			// resize mask to next % 12 for faster jenkins
 			byte[] maskdata = Encoding.ASCII.GetBytes(mask);
@@ -245,49 +245,34 @@ namespace CASCBruteforcer.Bruteforcers
 		#endregion
 
 		#region Unknown Hash Functions
-		private void ParseHashes()
-		{
-			// get data
-			string[] lines = new string[0];
+		private void ParseHashes(string mask)
+		{		
+			bool parseListfile = ListfileHandler.GetListfile("unk_listfile.txt", mask);
+			if(parseListfile)
+			{
+				string[] lines = new string[0];
 
-			// re-download every 6 hours or if missing
-			if (!File.Exists("unk_listfile.txt") || (DateTime.Now - File.GetLastWriteTime("unk_listfile.txt")).TotalHours >= 6)
-				DownloadUnknownListFile("unk_listfile.txt");
+				// sanity check it actually exists
+				if (File.Exists("unk_listfile.txt"))
+					lines = File.ReadAllLines("unk_listfile.txt");
 
-			// check it actually exists
-			if (File.Exists("unk_listfile.txt"))
-				lines = File.ReadAllLines("unk_listfile.txt");
-
-			// parse items - hex and standard because why not
-			ulong dump = 0;
-			IEnumerable<ulong> hashes = new ulong[1]; // 0 hash is used as a dump
+				// parse items - hex and standard because why not
+				ulong dump = 0;
+				IEnumerable<ulong> hashes = new ulong[1]; // 0 hash is used as a dump
 #if DEBUG
-			hashes = hashes.Concat(new ulong[] { 4097458660625243137, 13345699920692943597 }); // test hashes for the README examples
+				hashes = hashes.Concat(new ulong[] { 4097458660625243137, 13345699920692943597 }); // test hashes for the README examples
 #endif
-			hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), NumberStyles.HexNumber, null, out dump)).Select(x => dump)); // hex
-			hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), out dump)).Select(x => dump)); // standard
-			hashes = hashes.OrderBy(HashSort); // order by first byte - IMPORTANT
+				hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), NumberStyles.HexNumber, null, out dump)).Select(x => dump)); // hex
+				hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), out dump)).Select(x => dump)); // standard
+				hashes = hashes.OrderBy(HashSort); // order by first byte - IMPORTANT
 
-			TargetHashes = new HashSet<ulong>(hashes);
+				TargetHashes = new HashSet<ulong>(hashes);
+			}
+
+			if (TargetHashes == null || TargetHashes.Count <= 1)
+				throw new ArgumentException("Unknown listfile is missing or empty");
 		}
 
-		private void DownloadUnknownListFile(string name)
-		{
-			try
-			{
-				HttpWebRequest req = (HttpWebRequest)WebRequest.Create(LISTFILE_URL);
-				using (WebResponse resp = req.GetResponse())
-				using (FileStream fs = File.Create(name))
-					resp.GetResponseStream().CopyTo(fs);
-
-				req.Abort();
-				Console.WriteLine("Downloaded unknown listfile");
-			}
-			catch
-			{
-				Console.WriteLine($"Unable to download unknown listfile from `{LISTFILE_URL}`");
-			}
-		}
 		#endregion
 
 		#region Helpers

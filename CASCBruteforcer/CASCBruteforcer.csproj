@@ -93,6 +93,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Helpers\ListfileHandler.cs" />
     <Compile Include="Helpers\StringGenerator.cs" />
     <Compile Include="Helpers\JenkinsHash.cs" />
     <Compile Include="Bruteforcers\IHash.cs" />

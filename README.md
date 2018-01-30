@@ -2,6 +2,8 @@
 
 A GPU accelerated Salsa20 and Jenkins96 bruteforce tool. Benchmarks have been tested against an AMD Radeon R9 380.
 
+A big thanks to [Marlamin](https://github.com/Marlamin) for hacking his site around to accommodate this project.
+
 ## Salsa20
 The salsa implementation is designed to be as small and fast as possible, by only hashing a 4 character magic, at the cost of more collisions.
 
@@ -23,7 +25,7 @@ On my hardware I average 4000 million hashes a second.
 
 
 ## Jenkins96
-The jenkins implementation uses index based permutations and a filename template to attempt to match unnamed root file name hashes ([source](https://wowdev.wiki/CASC#Root)). The unnamed hash list is automatically pulled from [bnet.marlam.in](https://bnet.marlam.in) each startup. Found names will be exported upon completion to a file named 'Output.txt'. 
+The jenkins implementation uses index based permutations and a filename template to attempt to match unnamed root file name hashes ([source](https://wowdev.wiki/CASC#Root)). The unnamed hash list is automatically pulled from [bnet.marlam.in](https://bnet.marlam.in) and is filtered based on the template used. Found names will be exported upon completion to a file named 'Output.txt'. 
 
 For a list of common filename structures [see here](https://wowdev.wiki/Filename_Structures).
 
@@ -32,6 +34,8 @@ For a list of common filename structures [see here](https://wowdev.wiki/Filename
 2. Device (string) - "gpu", "cpu" or "all"
 3. Template (string) -  a file path to a list of templates or a single template using `%` as wildcard characters
 4. Mirrored (boolean) - (optional) if set to 1 the wildcard characters will be evenly applied twice
+5. Product (string) - (optional) "wow", "wowt" or "wow_beta", filters the unnamed hashes to a specific build
+5. Excluded Filetypes (string) - (optional) excludes specific [filetypes](https://bnet.marlam.in/filestats.php) from the unknown hashes
 
 #### Examples
 To test for unknown 5 character mp3s in the `interface/cinematics/` directory:
