@@ -172,17 +172,22 @@ namespace CASCBruteforcer.Bruteforcers
 			// set up internal loop of GLOBAL_WORKSIZE
 			if (loops > 0)
 			{
-				// loop size, index offset, output buffer
-				cl.SetParameter(loops, (ulong)0, resultArg);
-				Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, TargetHashes.Count));
+				for (uint i = 0; i < loops; i++)
+				{
+					// index offset, output buffer
+					cl.SetParameter((ulong)(i * GLOBAL_WORKSIZE), resultArg);
+					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, TargetHashes.Count));
+					Console.WriteLine($" {(i + 1) * GLOBAL_WORKSIZE}/{combinations}");
+				}
+
 				combinations -= loops * GLOBAL_WORKSIZE;
 			}
 
 			// process remaining
 			if (combinations > 0)
 			{
-				// loop size, index offset, output buffer
-				cl.SetParameter(1, (ulong)(loops * GLOBAL_WORKSIZE), resultArg);
+				// index offset, output buffer
+				cl.SetParameter((ulong)(loops * GLOBAL_WORKSIZE), resultArg);
 				Enqueue(cl.InvokeReturn<ulong>((long)combinations, TargetHashes.Count));
 			}
 
@@ -246,9 +251,9 @@ namespace CASCBruteforcer.Bruteforcers
 
 		#region Unknown Hash Functions
 		private void ParseHashes(string mask)
-		{		
+		{
 			bool parseListfile = ListfileHandler.GetListfile("unk_listfile.txt", mask);
-			if(parseListfile)
+			if (parseListfile)
 			{
 				string[] lines = new string[0];
 

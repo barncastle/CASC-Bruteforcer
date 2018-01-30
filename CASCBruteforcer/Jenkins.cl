@@ -55,91 +55,69 @@ ulong jenkins96(char *k) {
 }
 
 
-kernel void Bruteforce(uint loops, ulong offset, global ulong *result) {
+kernel void Bruteforce(ulong offset, global ulong *result) {
 
-	ulong index = get_global_id(0);
-	const ulong size = get_global_size(0);
+	const ulong index = get_global_id(0);
 	char mask[DATA_SIZE] = {{DATA}}; // base string bytes
 
-	ulong quotient, res;
-	uint result_index;
-	ushort hash_offset;
+	ulong quotient = index + offset;
+	ulong res;
 
 	#ifdef opencl_unroll_hint
 	__attribute__((opencl_unroll_hint))
 	#endif
-	for(uint x = 0; x < loops; x++)
+	for(ulong i = 0; i < OFFSETS_SIZE; i++)
 	{
-		quotient = index + offset;
-
-		#ifdef opencl_unroll_hint
-		__attribute__((opencl_unroll_hint))
-		#endif
-		for(ulong i = 0; i < OFFSETS_SIZE; i++)
-		{
-			mask[Offsets[i]] = Charset[(uint)(quotient % 39)]; // maps to character in charset (result of %)
-			quotient *= NEXT_CHAR; // divide the number by the base to calculate the next character (inverse multiplier is faster)
-		}
-
-		res = jenkins96(&mask);
-		result_index = 0;
-	
-		// fills the appropiate result block (or result[0] if no match) with the matching index
-		// starts at first hash of matching byte and runs for BUCKET_SIZE regardless to avoid branching		
-		hash_offset = HashOffsets[(res & 0xFF)]; // calculate offset
-
-		#ifdef opencl_unroll_hint
-		__attribute__((opencl_unroll_hint))
-		#endif
-		for(ulong i = 0; i < BUCKET_SIZE; i++)
-			result_index ^= (HashLookup[hash_offset + i] == res) * (hash_offset + i);
-
-		result[result_index] = index;
-		index += size;
+		mask[Offsets[i]] = Charset[(uint)(quotient % 39)]; // maps to character in charset (result of %)
+		quotient *= NEXT_CHAR; // divide the number by the base to calculate the next character (inverse multiplier is faster)
 	}
+
+	res = jenkins96(&mask);
+	uint result_index = 0;
+	
+	// fills the appropiate result block (or result[0] if no match) with the matching index
+	// starts at first hash of matching byte and runs for BUCKET_SIZE regardless to avoid branching		
+	ushort hash_offset = HashOffsets[(res & 0xFF)]; // calculate offset
+
+	#ifdef opencl_unroll_hint
+	__attribute__((opencl_unroll_hint))
+	#endif
+	for(ulong i = 0; i < BUCKET_SIZE; i++)
+		result_index ^= (HashLookup[hash_offset + i] == res) * (hash_offset + i);
+
+	result[result_index] = index;
 }
 
 
-kernel void BruteforceMirrored(uint loops, ulong offset, global ulong *result) {
+kernel void BruteforceMirrored(ulong offset, global ulong *result) {
 
-	ulong index = get_global_id(0);
-	const ulong size = get_global_size(0);
+	const ulong index = get_global_id(0);
 	char mask[DATA_SIZE] = {{DATA}}; // base string bytes
 
-	ulong quotient, res;
-	uint result_index;
-	ushort hash_offset;
+	ulong quotient = index + offset;
+	ulong res;
 
 	#ifdef opencl_unroll_hint
 	__attribute__((opencl_unroll_hint))
 	#endif
-	for(uint x = 0; x < loops; x++)
+	for(ulong i = 0; i < OFFSETS_SIZE; i += 2)
 	{
-		quotient = index + offset;
-
-		#ifdef opencl_unroll_hint
-		__attribute__((opencl_unroll_hint))
-		#endif
-		for(ulong i = 0; i < OFFSETS_SIZE; i += 2)
-		{
-			mask[Offsets[i]] = mask[Offsets[i + 1]] = Charset[(uint)(quotient % 39)]; // maps to character in charset (result of %)
-			quotient *= NEXT_CHAR; // divide the number by the base to calculate the next character (inverse multiplier is faster)
-		}
-
-		res = jenkins96(&mask);
-		result_index = 0;
-	
-		// fills the appropiate result block (or result[0] if no match) with the matching index
-		// starts at first hash of matching byte and runs for BUCKET_SIZE regardless to avoid branching		
-		hash_offset = HashOffsets[(res & 0xFF)]; // calculate offset
-
-		#ifdef opencl_unroll_hint
-		__attribute__((opencl_unroll_hint))
-		#endif
-		for(ulong i = 0; i < BUCKET_SIZE; i++)
-			result_index ^= (HashLookup[hash_offset + i] == res) * (hash_offset + i);
-
-		result[result_index] = index;
-		index += size;
+		mask[Offsets[i]] = mask[Offsets[i + 1]] = Charset[(uint)(quotient % 39)]; // maps to character in charset (result of %)
+		quotient *= NEXT_CHAR; // divide the number by the base to calculate the next character (inverse multiplier is faster)
 	}
+
+	res = jenkins96(&mask);
+	uint result_index = 0;
+	
+	// fills the appropiate result block (or result[0] if no match) with the matching index
+	// starts at first hash of matching byte and runs for BUCKET_SIZE regardless to avoid branching		
+	ushort hash_offset = HashOffsets[(res & 0xFF)]; // calculate offset
+
+	#ifdef opencl_unroll_hint
+	__attribute__((opencl_unroll_hint))
+	#endif
+	for(ulong i = 0; i < BUCKET_SIZE; i++)
+		result_index ^= (HashLookup[hash_offset + i] == res) * (hash_offset + i);
+
+	result[result_index] = index;
 }
