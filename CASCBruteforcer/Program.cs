@@ -34,6 +34,9 @@ namespace CASCBruteforcer
 					throw new ArgumentException("Invalid hash type");
 			}
 
+			// override console exit event
+			CleanExitHandler.Attach();
+			
 			hash.LoadParameters(args);
 			hash.Start();
 		}

@@ -176,12 +176,16 @@ namespace CASCBruteforcer.Bruteforcers
 				{
 					// index offset, output buffer
 					cl.SetParameter((ulong)(i * GLOBAL_WORKSIZE), resultArg);
-					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, TargetHashes.Count));
+
+					// my card crashes if it is going full throttle and I forcibly exit the kernel
+					// this overrides the default exit behaviour and waits for a break in GPU processing before exiting
+					// - if the exit event is fired twice it'll just force close
+					CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
+					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, TargetHashes.Count));					
+					CleanExitHandler.ProcessExit();
 
 					if (i == 0)
-					{
-						Task.Run(() => LogEstimation(loops, time.Elapsed.TotalSeconds));
-					}
+						LogEstimation(loops, time.Elapsed.TotalSeconds);
 				}
 
 				combinations -= loops * GLOBAL_WORKSIZE;
@@ -192,7 +196,10 @@ namespace CASCBruteforcer.Bruteforcers
 			{
 				// index offset, output buffer
 				cl.SetParameter((ulong)(loops * GLOBAL_WORKSIZE), resultArg);
+
+				CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
 				Enqueue(cl.InvokeReturn<ulong>((long)combinations, TargetHashes.Count));
+				CleanExitHandler.ProcessExit();
 			}
 
 			time.Stop();
@@ -204,10 +211,13 @@ namespace CASCBruteforcer.Bruteforcers
 		#region Validation
 		private void LogEstimation(uint loops, double seconds)
 		{
-			DateTime estimate = DateTime.Now;
-			for (int x = 0; x < loops; x++)
-				estimate = estimate.AddSeconds(seconds);
-			Console.WriteLine($" Estimated Completion {estimate}");
+			Task.Run(() =>
+			{
+				DateTime estimate = DateTime.Now;
+				for (int x = 0; x < loops; x++)
+					estimate = estimate.AddSeconds(seconds);
+				Console.WriteLine($" Estimated Completion {estimate}");
+			});
 		}
 
 		private void Enqueue(ulong[] results)
