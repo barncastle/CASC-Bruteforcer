@@ -57,10 +57,10 @@ ulong jenkins96(char *k) {
 
 kernel void Bruteforce(ulong offset, global ulong *result) {
 
-	const ulong index = get_global_id(0);
+	const ulong index = get_global_id(0) + offset;
 	char mask[DATA_SIZE] = {{DATA}}; // base string bytes
 
-	ulong quotient = index + offset;
+	ulong quotient = index;
 	ulong res;
 
 	#ifdef opencl_unroll_hint
@@ -91,10 +91,10 @@ kernel void Bruteforce(ulong offset, global ulong *result) {
 
 kernel void BruteforceMirrored(ulong offset, global ulong *result) {
 
-	const ulong index = get_global_id(0);
+	const ulong index = get_global_id(0) + offset;
 	char mask[DATA_SIZE] = {{DATA}}; // base string bytes
 
-	ulong quotient = index + offset;
+	ulong quotient = index;
 	ulong res;
 
 	#ifdef opencl_unroll_hint
