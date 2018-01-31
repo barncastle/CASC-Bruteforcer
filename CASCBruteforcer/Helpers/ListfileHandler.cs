@@ -66,11 +66,8 @@ namespace CASCBruteforcer.Helpers
 			string url = LISTFILE_URL;
 
 			// product filter
-			if (PRODUCTS.Contains(Product))
-			{
-				url += $"&product={Product}";
-			}
-
+			url += "&product=" + (PRODUCTS.Contains(Product) ? Product : "wow_beta"); // default to wow_beta
+			
 			// filter by filetype and the exclusions. "unk" is always included just incase
 			var extensions = new string[] { Normalise(Path.GetExtension(mask).TrimStart('.')) }.Concat(Exclusions).Distinct();
 			if (!extensions.Any(x => string.IsNullOrWhiteSpace(x)))
