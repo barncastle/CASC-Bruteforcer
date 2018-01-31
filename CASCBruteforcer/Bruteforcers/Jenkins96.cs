@@ -177,7 +177,11 @@ namespace CASCBruteforcer.Bruteforcers
 					// index offset, output buffer
 					cl.SetParameter((ulong)(i * GLOBAL_WORKSIZE), resultArg);
 					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, TargetHashes.Count));
-					Console.WriteLine($" {(i + 1) * GLOBAL_WORKSIZE}/{combinations}");
+
+					if (i == 0)
+					{
+						Task.Run(() => LogEstimation(loops, time.Elapsed.TotalSeconds));
+					}
 				}
 
 				combinations -= loops * GLOBAL_WORKSIZE;
@@ -198,6 +202,14 @@ namespace CASCBruteforcer.Bruteforcers
 
 
 		#region Validation
+		private void LogEstimation(uint loops, double seconds)
+		{
+			DateTime estimate = DateTime.Now;
+			for (int x = 0; x < loops; x++)
+				estimate = estimate.AddSeconds(seconds);
+			Console.WriteLine($" Estimated Completion {estimate}");
+		}
+
 		private void Enqueue(ulong[] results)
 		{
 			// dump everything into a collection and deal with it later
