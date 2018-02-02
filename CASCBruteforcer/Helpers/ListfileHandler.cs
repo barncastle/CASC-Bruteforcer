@@ -34,6 +34,8 @@ namespace CASCBruteforcer.Helpers
 			try
 			{
 				HttpWebRequest req = (HttpWebRequest)WebRequest.Create(URL);
+				req.UserAgent = "CASCBruteforcer/1.0 (+https://github.com/barncastle/CASC-Bruteforcer)"; // for tracking purposes
+
 				using (WebResponse resp = req.GetResponse())
 				using (FileStream fs = File.Create(name))
 					resp.GetResponseStream().CopyTo(fs);

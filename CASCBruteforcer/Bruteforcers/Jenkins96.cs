@@ -262,6 +262,7 @@ namespace CASCBruteforcer.Bruteforcers
 				req.Method = "POST";
 				req.ContentType = "application/x-www-form-urlencoded";
 				req.ContentLength = data.Length;
+				req.UserAgent = "CASCBruteforcer/1.0 (+https://github.com/barncastle/CASC-Bruteforcer)"; // for tracking purposes
 				using (var stream = req.GetRequestStream())
 				{
 					stream.Write(data, 0, data.Length);
@@ -282,7 +283,7 @@ namespace CASCBruteforcer.Bruteforcers
 			{
 				// print to the screen
 				foreach (var r in ResultStrings)
-					Console.WriteLine($"  {r}");
+					Console.WriteLine($"  {r.Replace("\\", "/").ToLower()}");
 
 				if (!IsBenchmark)
 				{
@@ -291,7 +292,7 @@ namespace CASCBruteforcer.Bruteforcers
 					{
 						sw.BaseStream.Position = sw.BaseStream.Length;
 						foreach (var r in ResultStrings)
-							sw.WriteLine(r);
+							sw.WriteLine(r.Replace("\\", "/").ToLower());
 					}
 
 					// post to Marlamin's site
