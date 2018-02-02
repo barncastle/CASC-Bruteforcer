@@ -19,6 +19,7 @@ namespace CASCBruteforcer.Bruteforcers
 	class Jenkins96 : IHash
 	{
 		const long GLOBAL_WORKSIZE = uint.MaxValue; // sizeof(size_t) usually uint
+		const string CHECKFILES_URL = "https://bnet.marlam.in/checkFiles.php";
 
 		private ListfileHandler ListfileHandler;
 		private ComputeDeviceTypes ComputeDevice;
@@ -52,9 +53,9 @@ namespace CASCBruteforcer.Bruteforcers
 			// format + validate template masks
 			if (File.Exists(args[2]))
 			{
-				Masks = File.ReadAllLines(args[2]).Where(x => x.Contains('%')).Select(x => Normalise(x)).ToArray();
+				Masks = File.ReadAllLines(args[2]).Select(x => Normalise(x)).ToArray();
 			}
-			else if (args[2].Contains('%'))
+			else
 			{
 				Masks = new string[] { Normalise(args[2]) };
 			}
@@ -112,6 +113,14 @@ namespace CASCBruteforcer.Bruteforcers
 		{
 			string mask = Masks[m];
 			ParseHashes(mask);
+
+			// handle templates without wildcards
+			if (!mask.Contains('%'))
+			{
+				ResultQueue.Enqueue(0);
+				Validate(mask, new byte[0]);
+				return;
+			}
 
 			// resize mask to next % 12 for faster jenkins
 			byte[] maskdata = Encoding.ASCII.GetBytes(mask);
@@ -181,7 +190,7 @@ namespace CASCBruteforcer.Bruteforcers
 					// this overrides the default exit behaviour and waits for a break in GPU processing before exiting
 					// - if the exit event is fired twice it'll just force close
 					CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
-					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, TargetHashes.Count));					
+					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, TargetHashes.Count));
 					CleanExitHandler.ProcessExit();
 
 					if (i == 0)
@@ -243,6 +252,27 @@ namespace CASCBruteforcer.Bruteforcers
 			}
 		}
 
+		private void PostResults()
+		{
+			try
+			{
+				byte[] data = Encoding.ASCII.GetBytes("files=" + string.Join("\r\n", ResultStrings));
+
+				HttpWebRequest req = (HttpWebRequest)WebRequest.Create(CHECKFILES_URL);
+				req.Method = "POST";
+				req.ContentType = "application/x-www-form-urlencoded";
+				req.ContentLength = data.Length;
+				using (var stream = req.GetRequestStream())
+				{
+					stream.Write(data, 0, data.Length);
+					req.GetResponse(); // send the post
+				}
+
+				req.Abort();
+			}
+			catch { }
+		}
+
 		private void LogAndExport()
 		{
 			// log completion
@@ -263,6 +293,9 @@ namespace CASCBruteforcer.Bruteforcers
 						foreach (var r in ResultStrings)
 							sw.WriteLine(r);
 					}
+
+					// post to Marlamin's site
+					PostResults();
 				}
 			}
 
