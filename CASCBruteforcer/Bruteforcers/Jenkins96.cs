@@ -55,7 +55,7 @@ namespace CASCBruteforcer.Bruteforcers
 			{
 				Masks = File.ReadAllLines(args[2]).Select(x => Normalise(x)).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
 			}
-			else if(!string.IsNullOrWhiteSpace(args[2]))
+			else if (!string.IsNullOrWhiteSpace(args[2]))
 			{
 				Masks = new string[] { Normalise(args[2]) };
 			}
@@ -214,6 +214,8 @@ namespace CASCBruteforcer.Bruteforcers
 			time.Stop();
 			Console.WriteLine($"Completed in {time.Elapsed.TotalSeconds.ToString("0.00")} secs");
 			Validate(mask, maskoffsets);
+
+			CleanExitHandler.IsProcessing = false;
 		}
 
 
@@ -254,24 +256,30 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private void PostResults()
 		{
-			try
+			const int TAKE = 20000;
+
+			int count = (int)Math.Ceiling(ResultStrings.Count / (float)TAKE);
+			for(int i = 0; i < count; i++)
 			{
-				byte[] data = Encoding.ASCII.GetBytes("files=" + string.Join("\r\n", ResultStrings));
-
-				HttpWebRequest req = (HttpWebRequest)WebRequest.Create(CHECKFILES_URL);
-				req.Method = "POST";
-				req.ContentType = "application/x-www-form-urlencoded";
-				req.ContentLength = data.Length;
-				req.UserAgent = "CASCBruteforcer/1.0 (+https://github.com/barncastle/CASC-Bruteforcer)"; // for tracking purposes
-				using (var stream = req.GetRequestStream())
+				try
 				{
-					stream.Write(data, 0, data.Length);
-					req.GetResponse(); // send the post
-				}
+					byte[] data = Encoding.ASCII.GetBytes("files=" + string.Join("\r\n", ResultStrings.Skip(i * TAKE).Take(TAKE)));
 
-				req.Abort();
+					HttpWebRequest req = (HttpWebRequest)WebRequest.Create(CHECKFILES_URL);
+					req.Method = "POST";
+					req.ContentType = "application/x-www-form-urlencoded";
+					req.ContentLength = data.Length;
+					req.UserAgent = "CASCBruteforcer/1.0 (+https://github.com/barncastle/CASC-Bruteforcer)"; // for tracking purposes
+					using (var stream = req.GetRequestStream())
+					{
+						stream.Write(data, 0, data.Length);
+						req.GetResponse(); // send the post
+					}
+
+					req.Abort();
+				}
+				catch { }
 			}
-			catch { }
 		}
 
 		private void LogAndExport()
