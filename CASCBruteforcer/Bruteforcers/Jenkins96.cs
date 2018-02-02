@@ -53,9 +53,9 @@ namespace CASCBruteforcer.Bruteforcers
 			// format + validate template masks
 			if (File.Exists(args[2]))
 			{
-				Masks = File.ReadAllLines(args[2]).Select(x => Normalise(x)).ToArray();
+				Masks = File.ReadAllLines(args[2]).Select(x => Normalise(x)).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
 			}
-			else
+			else if(!string.IsNullOrWhiteSpace(args[2]))
 			{
 				Masks = new string[] { Normalise(args[2]) };
 			}
