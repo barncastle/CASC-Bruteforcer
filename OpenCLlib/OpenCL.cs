@@ -417,16 +417,16 @@ namespace OpenCLlib
 			queue.Finish();
 		}
 
-		public T[] ExecuteReturn<T>(long Worksize, long WorkOffset, int OutSize) where T : struct
+		public T[] ExecuteReturn<T>(long Worksize, long LocalWorksize, long WorkOffset, int OutSize) where T : struct
 		{
 			T[] Returned = new T[OutSize];
 
 			SetArgs();
 
 			if(WorkOffset != 0)
-				queue.Execute(kernel, new long[] { WorkOffset }, new long[] { Worksize }, null, null);
+				queue.Execute(kernel, new long[] { WorkOffset }, new long[] { Worksize }, new long[] { LocalWorksize }, null);
 			else
-				queue.Execute(kernel, null, new long[] { Worksize }, null, null);		
+				queue.Execute(kernel, null, new long[] { Worksize }, new long[] { LocalWorksize }, null);		
 
 			for (int i = 0; i < MethodInfo.Arguments.Length; i++)
 			{

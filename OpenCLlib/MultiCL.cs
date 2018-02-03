@@ -84,14 +84,14 @@ namespace OpenCLlib
 		}
 
 
-		public T[] InvokeReturn<T>(long Worksize, int Outsize) where T : struct
+		public T[] InvokeReturn<T>(long Worksize, long LocalWorksize, int Outsize) where T : struct
 		{
 			if (Context.Length == 0)
 				throw new Exception("No compatible Context found");
 
 			// single context so run
 			if (Context.Length == 1)
-				return Context[0].ExecuteReturn<T>(Worksize, 0, Outsize);
+				return Context[0].ExecuteReturn<T>(Worksize, LocalWorksize, 0, Outsize);
 
 			// multiple Context so split workload
 			Task<T[]>[] Tasks = new Task<T[]>[Context.Length];
@@ -104,7 +104,7 @@ namespace OpenCLlib
 					worksize += remainder; // add remaining items to the last batch
 
 				int c = i; // local ref for the Task
-				Tasks[c] = Task.Run(() => Context[c].ExecuteReturn<T>(worksize, baseworksize * c, Outsize));
+				Tasks[c] = Task.Run(() => Context[c].ExecuteReturn<T>(worksize, LocalWorksize, baseworksize * c, Outsize));
 			}
 
 			Task.WaitAll(Tasks);
