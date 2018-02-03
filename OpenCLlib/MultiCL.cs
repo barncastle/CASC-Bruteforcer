@@ -84,7 +84,7 @@ namespace OpenCLlib
 		}
 
 
-		public T[] InvokeReturn<T>(long Worksize, long LocalWorksize, int Outsize) where T : struct
+		public T[] InvokeReturn<T>(long Worksize, long? LocalWorksize, int Outsize) where T : struct
 		{
 			if (Context.Length == 0)
 				throw new Exception("No compatible Context found");

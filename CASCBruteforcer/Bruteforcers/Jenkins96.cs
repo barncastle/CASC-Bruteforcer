@@ -19,7 +19,7 @@ namespace CASCBruteforcer.Bruteforcers
 	class Jenkins96 : IHash
 	{
 		const long GLOBAL_WORKSIZE = uint.MaxValue; // sizeof(size_t) usually uint
-		const long LOCAL_WORKSIZE = 256;
+		readonly long? LOCAL_WORKSIZE = null; // null = automatic size
 
 		const string CHECKFILES_URL = "https://bnet.marlam.in/checkFiles.php";
 
@@ -207,11 +207,9 @@ namespace CASCBruteforcer.Bruteforcers
 			{
 				// index offset, output buffer
 				cl.SetParameter((ulong)(loops * GLOBAL_WORKSIZE), resultArg);
-
-				long localsize = Math.Min((long)combinations, LOCAL_WORKSIZE);
-
+				
 				CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
-				Enqueue(cl.InvokeReturn<ulong>((long)combinations, localsize, TargetHashes.Count));
+				Enqueue(cl.InvokeReturn<ulong>((long)combinations, LOCAL_WORKSIZE, TargetHashes.Count));
 				CleanExitHandler.ProcessExit();
 			}
 
