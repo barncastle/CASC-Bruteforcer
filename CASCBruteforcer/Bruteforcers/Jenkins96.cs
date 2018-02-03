@@ -19,6 +19,8 @@ namespace CASCBruteforcer.Bruteforcers
 	class Jenkins96 : IHash
 	{
 		const long GLOBAL_WORKSIZE = uint.MaxValue; // sizeof(size_t) usually uint
+		const long LOCAL_WORKSIZE = 256;
+
 		const string CHECKFILES_URL = "https://bnet.marlam.in/checkFiles.php";
 
 		private ListfileHandler ListfileHandler;
@@ -190,7 +192,7 @@ namespace CASCBruteforcer.Bruteforcers
 					// this overrides the default exit behaviour and waits for a break in GPU processing before exiting
 					// - if the exit event is fired twice it'll just force close
 					CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
-					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, 256, TargetHashes.Count));
+					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, LOCAL_WORKSIZE, TargetHashes.Count));
 					CleanExitHandler.ProcessExit();
 
 					if (i == 0)
@@ -206,7 +208,7 @@ namespace CASCBruteforcer.Bruteforcers
 				// index offset, output buffer
 				cl.SetParameter((ulong)(loops * GLOBAL_WORKSIZE), resultArg);
 
-				long localsize = Math.Min((long)combinations, 256);
+				long localsize = Math.Min((long)combinations, LOCAL_WORKSIZE);
 
 				CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
 				Enqueue(cl.InvokeReturn<ulong>((long)combinations, localsize, TargetHashes.Count));
