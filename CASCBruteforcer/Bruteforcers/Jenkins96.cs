@@ -18,8 +18,7 @@ namespace CASCBruteforcer.Bruteforcers
 {
 	class Jenkins96 : IHash
 	{
-		const long GLOBAL_WORKSIZE = uint.MaxValue; // sizeof(size_t) usually uint
-		readonly long? LOCAL_WORKSIZE = null; // null = automatic size
+		private long GLOBAL_WORKSIZE = uint.MaxValue; // sizeof(size_t) usually uint
 
 		const string CHECKFILES_URL = "https://bnet.marlam.in/checkFiles.php";
 
@@ -97,6 +96,7 @@ namespace CASCBruteforcer.Bruteforcers
 			Masks = new string[] { Normalise(mask) };
 			TargetHashes = new HashSet<ulong>() { 0, 4097458660625243137 };
 
+			ListfileHandler = new ListfileHandler();
 			ResultQueue = new Queue<ulong>();
 			ResultStrings = new HashSet<string>();
 			IsBenchmark = true;
@@ -160,7 +160,7 @@ namespace CASCBruteforcer.Bruteforcers
 			KernelWriter kernel = new KernelWriter(Properties.Resources.Jenkins);
 			kernel.ReplaceArray("DATA", maskdata);
 			kernel.ReplaceArray("OFFSETS", maskoffsets);
-			kernel.ReplaceArray("HASHES", TargetHashes);
+			kernel.ReplaceArray("HASHES", TargetHashes.Select(x => x + "ULL")); // prefix ULL to remove the warnings..
 			kernel.Replace("DATA_SIZE_REAL", mask.Length);
 			kernel.ReplaceOffsetArray(TargetHashes);
 
@@ -192,7 +192,7 @@ namespace CASCBruteforcer.Bruteforcers
 					// this overrides the default exit behaviour and waits for a break in GPU processing before exiting
 					// - if the exit event is fired twice it'll just force close
 					CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
-					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, LOCAL_WORKSIZE, TargetHashes.Count));
+					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, null, TargetHashes.Count));
 					CleanExitHandler.ProcessExit();
 
 					if (i == 0)
@@ -207,9 +207,9 @@ namespace CASCBruteforcer.Bruteforcers
 			{
 				// index offset, output buffer
 				cl.SetParameter((ulong)(loops * GLOBAL_WORKSIZE), resultArg);
-				
+
 				CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
-				Enqueue(cl.InvokeReturn<ulong>((long)combinations, LOCAL_WORKSIZE, TargetHashes.Count));
+				Enqueue(cl.InvokeReturn<ulong>((long)combinations, null, TargetHashes.Count));
 				CleanExitHandler.ProcessExit();
 			}
 

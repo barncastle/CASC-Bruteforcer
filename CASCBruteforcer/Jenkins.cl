@@ -8,7 +8,7 @@
 #define NEXT_CHAR (1.0 / 39.0) // (1 / Charset.Length)
 
 // Constants
-constant int Offsets[OFFSETS_SIZE] = { {OFFSETS} };
+constant uint Offsets[OFFSETS_SIZE] = { {OFFSETS} };
 constant char Charset[39] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_- ";
 constant ulong HashLookup[HASHES_SIZE] = { {HASHES} }; // hashes to find, sorted by first byte
 constant ushort HashOffsets[256] = { {HASH_OFFSETS} }; // offset of first hash with first byte in HashLookup
@@ -61,7 +61,6 @@ kernel void Bruteforce(ulong offset, global ulong *result) {
 	char mask[DATA_SIZE] = {{DATA}}; // base string bytes
 
 	ulong quotient = index;
-	ulong res;
 
 	#ifdef opencl_unroll_hint
 	__attribute__((opencl_unroll_hint))
@@ -72,7 +71,7 @@ kernel void Bruteforce(ulong offset, global ulong *result) {
 		quotient *= NEXT_CHAR; // divide the number by the base to calculate the next character (inverse multiplier is faster)
 	}
 
-	res = jenkins96(&mask);
+	ulong res = jenkins96(&mask);
 	uint result_index = 0;
 	
 	// fills the appropiate result block (or result[0] if no match) with the matching index
@@ -95,7 +94,6 @@ kernel void BruteforceMirrored(ulong offset, global ulong *result) {
 	char mask[DATA_SIZE] = {{DATA}}; // base string bytes
 
 	ulong quotient = index;
-	ulong res;
 
 	#ifdef opencl_unroll_hint
 	__attribute__((opencl_unroll_hint))
@@ -106,7 +104,7 @@ kernel void BruteforceMirrored(ulong offset, global ulong *result) {
 		quotient *= NEXT_CHAR; // divide the number by the base to calculate the next character (inverse multiplier is faster)
 	}
 
-	res = jenkins96(&mask);
+	ulong res = jenkins96(&mask);
 	uint result_index = 0;
 	
 	// fills the appropiate result block (or result[0] if no match) with the matching index
