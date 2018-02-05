@@ -30,6 +30,9 @@ namespace CASCBruteforcer
 				case "benchmark":
 					BenchmarkJenkins(args);
 					return;
+				case "wordlist":
+					hash = new Wordlist();
+					break;
 				default:
 					throw new ArgumentException("Invalid hash type");
 			}

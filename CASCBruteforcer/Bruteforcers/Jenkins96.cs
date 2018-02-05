@@ -318,7 +318,7 @@ namespace CASCBruteforcer.Bruteforcers
 		#region Unknown Hash Functions
 		private void ParseHashes(string mask)
 		{
-			bool parseListfile = ListfileHandler.GetListfile("unk_listfile.txt", mask);
+			bool parseListfile = ListfileHandler.GetUnknownListfile("unk_listfile.txt", mask);
 			if (parseListfile)
 			{
 				string[] lines = new string[0];

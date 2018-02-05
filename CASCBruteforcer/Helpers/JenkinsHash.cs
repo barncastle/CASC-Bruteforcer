@@ -10,7 +10,7 @@ namespace CASCBruteforcer.Helpers
 	class JenkinsHash : HashAlgorithm
 	{
 		private ulong hashValue;
-		private static byte[] hashBytes = new byte[0];
+		private static readonly byte[] hashBytes = new byte[0];
 
 		private uint Rot(uint x, int k) =>  (x << k) | (x >> (32 - k));
 

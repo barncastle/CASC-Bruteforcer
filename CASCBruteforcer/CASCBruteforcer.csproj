@@ -93,6 +93,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Bruteforcers\Wordlist.cs" />
     <Compile Include="CleanExitHandler.cs" />
     <Compile Include="Helpers\ListfileHandler.cs" />
     <Compile Include="Helpers\StringGenerator.cs" />

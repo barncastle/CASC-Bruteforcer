@@ -10,7 +10,9 @@ namespace CASCBruteforcer.Helpers
 {
 	class ListfileHandler
 	{
-		public const string LISTFILE_URL = "https://bnet.marlam.in/listfile.php?unk=1";
+		public const string UNKNOWN_LISTFILE_URL = "https://bnet.marlam.in/listfile.php?unk=1";
+		public const string KNOWN_LISTFILE_URL = "https://github.com/bloerwald/wow-listfile/blob/master/listfile.txt?raw=true";
+
 		private readonly string[] PRODUCTS = new string[] { "wow", "wowt", "wow_beta" };
 
 		private readonly string Product;
@@ -19,13 +21,19 @@ namespace CASCBruteforcer.Helpers
 		private string PreviousURL;
 
 
+		public ListfileHandler()
+		{
+			Product = "";
+			Exclusions = new string[0];
+		}
+
 		public ListfileHandler(string product, string exclusions)
 		{
 			Product = product.Trim().ToLower(); // target product
 			Exclusions = exclusions.Split(',').Select(x => Normalise(x)).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray(); // required exclusions
 		}
 
-		public bool GetListfile(string name, string mask)
+		public bool GetUnknownListfile(string name, string mask)
 		{
 			string URL = BuildURL(mask);
 			if (URL == PreviousURL) // don't redownload the same list
@@ -48,11 +56,39 @@ namespace CASCBruteforcer.Helpers
 			catch
 			{
 				File.Delete(name);
-				Console.WriteLine($"Unable to download unknown listfile from `{LISTFILE_URL}`");
+				Console.WriteLine($"Unable to download unknown listfile from `{UNKNOWN_LISTFILE_URL}`");
 			}
 
 			return true;
 		}
+
+		public bool GetKnownListfile()
+		{
+			// only redownload every few hours as this is updated as and when by the community
+			if (File.Exists("listfile.txt") && (DateTime.Now - File.GetLastWriteTime("listfile.txt")).TotalHours < 4)
+				return true;
+
+			try
+			{
+				HttpWebRequest req = (HttpWebRequest)WebRequest.Create(KNOWN_LISTFILE_URL);
+				req.UserAgent = "CASCBruteforcer/1.0 (+https://github.com/barncastle/CASC-Bruteforcer)"; // for tracking purposes
+
+				using (WebResponse resp = req.GetResponse())
+				using (FileStream fs = File.Create("listfile.txt"))
+					resp.GetResponseStream().CopyTo(fs);
+
+				req.Abort();
+
+				Console.WriteLine("Downloaded known listfile");
+				return true;
+			}
+			catch
+			{
+				Console.WriteLine($"Unable to download known listfile from `{KNOWN_LISTFILE_URL}`");
+				return false;
+			}			
+		}
+
 
 
 		private string BuildURL(string mask)
@@ -65,7 +101,7 @@ namespace CASCBruteforcer.Helpers
 				"toc", "ttf", "txt", "url", "wdl", "wdt", "wfx", "what", "wmo", "wtf", "wwe", "xml", "xsd", "zmp"
 			};
 
-			string url = LISTFILE_URL;
+			string url = UNKNOWN_LISTFILE_URL;
 
 			// product filter
 			url += "&product=" + (PRODUCTS.Contains(Product) ? Product : "wow_beta"); // default to wow_beta

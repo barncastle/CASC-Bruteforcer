@@ -26,6 +26,7 @@ On my hardware I average 4000 million hashes a second.
 
 ## Jenkins96
 The jenkins implementation uses index based permutations and a filename template to attempt to match unnamed root file name hashes ([source](https://wowdev.wiki/CASC#Root)). The unnamed hash list is automatically pulled from [bnet.marlam.in](https://bnet.marlam.in) and is filtered based on the template used. Found names will be exported upon completion to a file named 'Output.txt'. 
+Note: The `template` argument can also be a .txt file containing multiple wildcard strings.
 
 For a list of common filename structures [see here](https://wowdev.wiki/Filename_Structures).
 
@@ -49,3 +50,17 @@ On my GPU I can compare all 7 character (39^7) permutations against ~5500 unname
 
 Depending on your hardware you may get better jenkins performance using a different combination of kernels. To test this use "benchmark" and a number of wildcard characters between 1 and 9 e.g.
 >cascbruteforcer benchmark 5
+
+## Wordlist
+A very simple wordlist tester. The wordlist is generated from splitting all [known filenames](https://github.com/bloerwald/wow-listfile) by common delimiters. 
+Note: The `template` argument can also be a .txt file containing multiple wildcard strings.
+
+For a list of common filename structures [see here](https://wowdev.wiki/Filename_Structures).
+
+#### Arguments
+1. Template (string) -  a file path to a list of templates or a single template using a `%` as the wildcard character
+2. Parallel (boolean) - (optional) uses parallelism - will be CPU intensive
+
+#### Examples
+To find `world/maps/gilneas/gilneas.tex`:
+>cascbruteforcer "wordlist" "world/maps/gilneas/%.tex"
