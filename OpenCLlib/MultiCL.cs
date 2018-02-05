@@ -19,7 +19,15 @@ namespace OpenCLlib
 
 		public void SetFilter(ComputeDeviceTypes filter)
 		{
-			this.Accelerators = AcceleratorDevice.All.Where(x => filter.HasFlag(x.Type)).ToArray();
+			var accelerators = AcceleratorDevice.All.Where(x => filter.HasFlag(x.Type));
+
+			// remove Intel graphics if there is a GPU
+			if(filter == ComputeDeviceTypes.Gpu && accelerators.Any(x => !x.Vendor.ToLower().Contains("intel")))
+			{
+				accelerators = accelerators.Where(x => x.Vendor.ToLower().Contains("intel"));
+			}
+
+			this.Accelerators = accelerators.ToArray();
 			this.Context = Accelerators.Select(x => new OpenCL() { Accelerator = x }).ToArray();
 		}
 
