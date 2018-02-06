@@ -18,7 +18,7 @@ namespace CASCBruteforcer.Bruteforcers
 {
 	class Jenkins96 : IHash
 	{
-		private long GLOBAL_WORKSIZE = uint.MaxValue; // sizeof(size_t) usually uint
+		const long BASE_GLOBAL_WORKSIZE = uint.MaxValue; // sizeof(size_t) usually uint
 
 		const string CHECKFILES_URL = "https://bnet.marlam.in/checkFiles.php";
 
@@ -94,7 +94,6 @@ namespace CASCBruteforcer.Bruteforcers
 			}
 
 			Masks = new string[] { Normalise(mask) };
-			TargetHashes = new HashSet<ulong>() { 0, 4097458660625243137 };
 
 			ListfileHandler = new ListfileHandler();
 			ResultQueue = new Queue<ulong>();
@@ -169,6 +168,14 @@ namespace CASCBruteforcer.Bruteforcers
 			Console.WriteLine($"Loading kernel - {TargetHashes.Count - 1} hashes. This may take a minute...");
 			cl.SetKernel(kernel.ToString(), IsMirrored ? "BruteforceMirrored" : "Bruteforce");
 
+			// performance settings
+			// - get the warp size
+			// - align the threads to the warp
+			// - calculate the smallest local size !Note: GLOBAL % LOCAL must be 0 for NVidia
+			long WARP_SIZE = cl.WarpSize;
+			long LOCAL_WORKSIZE = cl.MaxLocalSize;
+			long GLOBAL_WORKSIZE = cl.CalculateGlobalsize(BASE_GLOBAL_WORKSIZE, LOCAL_WORKSIZE);			
+
 			// limit workload to MAX_WORKSIZE and use an on-device loop to breach that value
 			BigInteger combinations = BigInteger.Pow(39, maskoffsets.Length / (IsMirrored ? 2 : 1)); // total combinations
 			uint loops = (uint)Math.Floor(Math.Exp(BigInteger.Log(combinations) - BigInteger.Log(GLOBAL_WORKSIZE)));
@@ -178,21 +185,22 @@ namespace CASCBruteforcer.Bruteforcers
 			Stopwatch time = Stopwatch.StartNew();
 
 			// output buffer arg
-			var resultArg = CLArgument<ulong>.CreateReturn(TargetHashes.Count);
+			int bufferSize = (TargetHashes.Count + (8 - TargetHashes.Count % 8) % 8); // buffer should be 64 byte aligned
+			var resultArg = CLArgument<ulong>.CreateReturn(bufferSize);
 
 			// set up internal loop of GLOBAL_WORKSIZE
 			if (loops > 0)
 			{
 				for (uint i = 0; i < loops; i++)
 				{
-					// index offset, output buffer
-					cl.SetParameter((ulong)(i * GLOBAL_WORKSIZE), resultArg);
+					// index offset, count, output buffer
+					cl.SetParameter((ulong)(i * GLOBAL_WORKSIZE), GLOBAL_WORKSIZE, resultArg);
 
 					// my card crashes if it is going full throttle and I forcibly exit the kernel
 					// this overrides the default exit behaviour and waits for a break in GPU processing before exiting
 					// - if the exit event is fired twice it'll just force close
 					CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
-					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, null, TargetHashes.Count));
+					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, LOCAL_WORKSIZE, bufferSize));
 					CleanExitHandler.ProcessExit();
 
 					if (i == 0)
@@ -205,11 +213,16 @@ namespace CASCBruteforcer.Bruteforcers
 			// process remaining
 			if (combinations > 0)
 			{
-				// index offset, output buffer
-				cl.SetParameter((ulong)(loops * GLOBAL_WORKSIZE), resultArg);
+				ulong offset = (ulong)(loops * GLOBAL_WORKSIZE);
+
+				// recalculate sizes for the remainder
+				LOCAL_WORKSIZE = cl.CalculateLocalsize((long)combinations, cl.MaxLocalSize);
+
+				// index offset, count, output buffer
+				cl.SetParameter((ulong)(loops * GLOBAL_WORKSIZE), GLOBAL_WORKSIZE,  resultArg);							
 
 				CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
-				Enqueue(cl.InvokeReturn<ulong>((long)combinations, null, TargetHashes.Count));
+				Enqueue(cl.InvokeReturn<ulong>((long)combinations, LOCAL_WORKSIZE, bufferSize));
 				CleanExitHandler.ProcessExit();
 			}
 
@@ -261,7 +274,7 @@ namespace CASCBruteforcer.Bruteforcers
 			const int TAKE = 20000;
 
 			int count = (int)Math.Ceiling(ResultStrings.Count / (float)TAKE);
-			for(int i = 0; i < count; i++)
+			for (int i = 0; i < count; i++)
 			{
 				try
 				{
@@ -319,26 +332,24 @@ namespace CASCBruteforcer.Bruteforcers
 		private void ParseHashes(string mask)
 		{
 			bool parseListfile = ListfileHandler.GetUnknownListfile("unk_listfile.txt", mask);
-			if (parseListfile)
-			{
-				string[] lines = new string[0];
 
-				// sanity check it actually exists
-				if (File.Exists("unk_listfile.txt"))
-					lines = File.ReadAllLines("unk_listfile.txt");
+			string[] lines = new string[0];
 
-				// parse items - hex and standard because why not
-				ulong dump = 0;
-				IEnumerable<ulong> hashes = new ulong[1]; // 0 hash is used as a dump
+			// sanity check it actually exists
+			if (File.Exists("unk_listfile.txt"))
+				lines = File.ReadAllLines("unk_listfile.txt");
+
+			// parse items - hex and standard because why not
+			ulong dump = 0;
+			IEnumerable<ulong> hashes = new ulong[1]; // 0 hash is used as a dump
 #if DEBUG
-				hashes = hashes.Concat(new ulong[] { 4097458660625243137, 13345699920692943597 }); // test hashes for the README examples
+			hashes = hashes.Concat(new ulong[] { 4097458660625243137, 13345699920692943597 }); // test hashes for the README examples
 #endif
-				hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), NumberStyles.HexNumber, null, out dump)).Select(x => dump)); // hex
-				hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), out dump)).Select(x => dump)); // standard
-				hashes = hashes.OrderBy(HashSort); // order by first byte - IMPORTANT
+			hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), NumberStyles.HexNumber, null, out dump)).Select(x => dump)); // hex
+			hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), out dump)).Select(x => dump)); // standard
+			hashes = hashes.OrderBy(HashSort); // order by first byte - IMPORTANT
 
-				TargetHashes = new HashSet<ulong>(hashes);
-			}
+			TargetHashes = new HashSet<ulong>(hashes);
 
 			if (TargetHashes == null || TargetHashes.Count <= 1)
 				throw new ArgumentException("Unknown listfile is missing or empty");

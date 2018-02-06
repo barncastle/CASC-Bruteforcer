@@ -12,6 +12,10 @@ namespace OpenCLlib
 		public OpenCL[] Context;
 		public event EventHandler<double> ProgressChangedEvent;
 
+		public long WarpSize => !Accelerators.All(x => x.Vendor.ToLower().Contains("amd")) ? 32 : 64;
+		public long MaxLocalSize => Accelerators.Min(x => x.Device.MaxWorkGroupSize);
+		
+
 		public MultiCL(ComputeDeviceTypes filter = ComputeDeviceTypes.All)
 		{
 			SetFilter(filter);
@@ -22,9 +26,9 @@ namespace OpenCLlib
 			var accelerators = AcceleratorDevice.All.Where(x => filter.HasFlag(x.Type));
 
 			// remove Intel graphics if there is a GPU
-			if(filter == ComputeDeviceTypes.Gpu && accelerators.Any(x => !x.Vendor.ToLower().Contains("intel")))
+			if (filter == ComputeDeviceTypes.Gpu && accelerators.Any(x => !x.Vendor.ToLower().Contains("intel")))
 			{
-				accelerators = accelerators.Where(x => x.Vendor.ToLower().Contains("intel"));
+				accelerators = accelerators.Where(x => !x.Vendor.ToLower().Contains("intel"));
 			}
 
 			this.Accelerators = accelerators.ToArray();
@@ -32,6 +36,26 @@ namespace OpenCLlib
 		}
 
 
+		public long CalculateGlobalsize(long globalSize, long groupSize)
+		{
+			long r = globalSize % groupSize;
+			if (r == 0)
+				return globalSize;
+
+			return globalSize + groupSize - r;
+		}
+
+		public long CalculateLocalsize(long globalSize)
+		{
+			// highest factor <= MaxWorkSize
+			for (long i = MaxLocalSize; i > 0; i--)
+				if (globalSize % i == 0)
+					return i;
+
+			return 1; // unreachable
+		}
+
+		
 		public void SetKernel(string Kernel, string Method)
 		{
 			foreach (var c in Context)

@@ -18,7 +18,8 @@ uint rotl(uint bits, uint amount) {
 	return (bits << amount) | (bits >> (32 - amount));
 }
 
-ulong jenkins96(char *k) {
+uint jenkins96(char *k) {
+
 	uint a, b, c;
 	a = b = c = HASH_PRIME;
 
@@ -51,14 +52,33 @@ ulong jenkins96(char *k) {
 	b ^= a; b -= rotl(a, 14);
 	c ^= b; c -= rotl(b, 24);
 
-	return ((ulong)c << 32) | b;
+	ulong result = ((ulong)c << 32) | b;
+	
+	// Validatation	
+	// - fills the appropiate result block (or result[0] if no match) with the matching index
+	// - starts at first hash of matching byte and runs for BUCKET_SIZE regardless to avoid branching		
+	uint result_index = 0;
+	ushort hash_offset = HashOffsets[(result & 0xFF)]; // calculate offset
+
+	#ifdef opencl_unroll_hint
+	__attribute__((opencl_unroll_hint))
+	#endif
+	for(ulong i = 0; i < BUCKET_SIZE; i++)
+		result_index ^= (HashLookup[hash_offset + i] == result) * (hash_offset + i);
+
+	return result_index;
 }
 
-
-kernel void Bruteforce(ulong offset, global ulong *result) {
+kernel void Bruteforce(ulong offset, ulong count, global ulong *result) {
 
 	const ulong index = get_global_id(0) + offset;
 	char mask[DATA_SIZE] = {{DATA}}; // base string bytes
+
+	// bound check
+	//if(index > count)
+	//{
+	//	printf("%u \r\n", index);
+	//}
 
 	ulong quotient = index;
 
@@ -71,20 +91,7 @@ kernel void Bruteforce(ulong offset, global ulong *result) {
 		quotient *= NEXT_CHAR; // divide the number by the base to calculate the next character (inverse multiplier is faster)
 	}
 
-	ulong res = jenkins96(&mask);
-	uint result_index = 0;
-	
-	// fills the appropiate result block (or result[0] if no match) with the matching index
-	// starts at first hash of matching byte and runs for BUCKET_SIZE regardless to avoid branching		
-	ushort hash_offset = HashOffsets[(res & 0xFF)]; // calculate offset
-
-	#ifdef opencl_unroll_hint
-	__attribute__((opencl_unroll_hint))
-	#endif
-	for(ulong i = 0; i < BUCKET_SIZE; i++)
-		result_index ^= (HashLookup[hash_offset + i] == res) * (hash_offset + i);
-
-	result[result_index] = index;
+	result[jenkins96(&mask)] = index;
 }
 
 
@@ -104,18 +111,5 @@ kernel void BruteforceMirrored(ulong offset, global ulong *result) {
 		quotient *= NEXT_CHAR; // divide the number by the base to calculate the next character (inverse multiplier is faster)
 	}
 
-	ulong res = jenkins96(&mask);
-	uint result_index = 0;
-	
-	// fills the appropiate result block (or result[0] if no match) with the matching index
-	// starts at first hash of matching byte and runs for BUCKET_SIZE regardless to avoid branching		
-	ushort hash_offset = HashOffsets[(res & 0xFF)]; // calculate offset
-
-	#ifdef opencl_unroll_hint
-	__attribute__((opencl_unroll_hint))
-	#endif
-	for(ulong i = 0; i < BUCKET_SIZE; i++)
-		result_index ^= (HashLookup[hash_offset + i] == res) * (hash_offset + i);
-
-	result[result_index] = index;
+	result[jenkins96(&mask)] = index;
 }

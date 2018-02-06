@@ -38,7 +38,7 @@ namespace CASCBruteforcer.Helpers
 			string URL = BuildURL(mask);
 			if (URL == PreviousURL) // don't redownload the same list
 				return false;
-
+			
 			try
 			{
 				HttpWebRequest req = (HttpWebRequest)WebRequest.Create(URL);
