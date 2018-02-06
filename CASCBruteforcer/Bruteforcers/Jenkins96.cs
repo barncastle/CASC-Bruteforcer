@@ -216,7 +216,7 @@ namespace CASCBruteforcer.Bruteforcers
 				ulong offset = (ulong)(loops * GLOBAL_WORKSIZE);
 
 				// recalculate sizes for the remainder
-				LOCAL_WORKSIZE = cl.CalculateLocalsize((long)combinations, cl.MaxLocalSize);
+				LOCAL_WORKSIZE = cl.CalculateLocalsize((long)combinations);
 
 				// index offset, count, output buffer
 				cl.SetParameter((ulong)(loops * GLOBAL_WORKSIZE), GLOBAL_WORKSIZE,  resultArg);							
