@@ -71,12 +71,19 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private void Run(int m)
 		{
-			string mask = Masks[m];
+			string mask = Normalise(Masks[m]);
 
-			if (mask.Count(x => x == '%') != 1)
+			int wildcardcount = mask.Count(x => x == '%');
+			if (wildcardcount > 1)
 			{
 				Console.WriteLine($"Error: Templates must contain exactly one '%' character. `{mask}`");
 				return;
+			}
+			else if(wildcardcount == 0)
+			{
+				JenkinsHash j = new JenkinsHash();
+				if (TargetHashes.Contains(j.ComputeHash(mask)))
+					ResultStrings.Add(mask);
 			}
 
 

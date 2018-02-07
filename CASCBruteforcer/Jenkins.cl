@@ -69,16 +69,11 @@ uint jenkins96(char *k) {
 	return result_index;
 }
 
-kernel void Bruteforce(ulong offset, ulong count, global ulong *result) {
+kernel void Bruteforce(ulong offset, global ulong *result) {
 
-	const ulong index = get_global_id(0) + offset;
+	const ulong id = get_global_id(0);
+	const ulong index = id + offset;
 	char mask[DATA_SIZE] = {{DATA}}; // base string bytes
-
-	// bound check
-	//if(index > count)
-	//{
-	//	printf("%u \r\n", index);
-	//}
 
 	ulong quotient = index;
 

@@ -168,62 +168,55 @@ namespace CASCBruteforcer.Bruteforcers
 			Console.WriteLine($"Loading kernel - {TargetHashes.Count - 1} hashes. This may take a minute...");
 			cl.SetKernel(kernel.ToString(), IsMirrored ? "BruteforceMirrored" : "Bruteforce");
 
-			// performance settings
-			// - get the warp size
-			// - align the threads to the warp
-			// - calculate the smallest local size !Note: GLOBAL % LOCAL must be 0 for NVidia
-			long WARP_SIZE = cl.WarpSize;
-			long LOCAL_WORKSIZE = cl.MaxLocalSize;
-			long GLOBAL_WORKSIZE = cl.CalculateGlobalsize(BASE_GLOBAL_WORKSIZE, LOCAL_WORKSIZE);			
-
-			// limit workload to MAX_WORKSIZE and use an on-device loop to breach that value
-			BigInteger combinations = BigInteger.Pow(39, maskoffsets.Length / (IsMirrored ? 2 : 1)); // total combinations
-			uint loops = (uint)Math.Floor(Math.Exp(BigInteger.Log(combinations) - BigInteger.Log(GLOBAL_WORKSIZE)));
-
-			// Start the work
-			Console.WriteLine($"Starting Jenkins Hashing :: {combinations} combinations ");
-			Stopwatch time = Stopwatch.StartNew();
-
 			// output buffer arg
 			int bufferSize = (TargetHashes.Count + (8 - TargetHashes.Count % 8) % 8); // buffer should be 64 byte aligned
 			var resultArg = CLArgument<ulong>.CreateReturn(bufferSize);
 
-			// set up internal loop of GLOBAL_WORKSIZE
-			if (loops > 0)
+			// alignment calculations			
+			BigInteger COMBINATIONS = BigInteger.Pow(39, maskoffsets.Length / (IsMirrored ? 2 : 1)); // calculate combinations
+			long LOCAL_WORKSIZE, GLOBAL_WORKSIZE; // TODO keep fiddling with these vars
+			long WARP_SIZE = cl.WarpSize;
+
+			// Start the work
+			Console.WriteLine($"Starting Jenkins Hashing :: {COMBINATIONS} combinations ");
+			Stopwatch time = Stopwatch.StartNew();
+			
+			COMBINATIONS += WARP_SIZE - (COMBINATIONS % WARP_SIZE); // pad to the warp size
+
+			if (COMBINATIONS < BASE_GLOBAL_WORKSIZE)
 			{
+				GLOBAL_WORKSIZE = (long)COMBINATIONS;
+
+				// index offset, count, output buffer
+				cl.SetParameter((ulong)0, resultArg);
+
+				CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
+				Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, null, bufferSize));
+				CleanExitHandler.ProcessExit();
+			}
+			else
+			{
+				GLOBAL_WORKSIZE = BASE_GLOBAL_WORKSIZE - (BASE_GLOBAL_WORKSIZE % WARP_SIZE);
+				uint loops = (uint)Math.Ceiling(Math.Exp(BigInteger.Log(COMBINATIONS) - BigInteger.Log(GLOBAL_WORKSIZE)));
+
+				// set up internal loop of GLOBAL_WORKSIZE
 				for (uint i = 0; i < loops; i++)
 				{
 					// index offset, count, output buffer
-					cl.SetParameter((ulong)(i * GLOBAL_WORKSIZE), GLOBAL_WORKSIZE, resultArg);
+					cl.SetParameter((ulong)(i * GLOBAL_WORKSIZE), resultArg);
 
 					// my card crashes if it is going full throttle and I forcibly exit the kernel
 					// this overrides the default exit behaviour and waits for a break in GPU processing before exiting
 					// - if the exit event is fired twice it'll just force close
 					CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
-					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, LOCAL_WORKSIZE, bufferSize));
+					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, null, bufferSize));
 					CleanExitHandler.ProcessExit();
 
 					if (i == 0)
 						LogEstimation(loops, time.Elapsed.TotalSeconds);
+
+					COMBINATIONS -= GLOBAL_WORKSIZE;
 				}
-
-				combinations -= loops * GLOBAL_WORKSIZE;
-			}
-
-			// process remaining
-			if (combinations > 0)
-			{
-				ulong offset = (ulong)(loops * GLOBAL_WORKSIZE);
-
-				// recalculate sizes for the remainder
-				LOCAL_WORKSIZE = cl.CalculateLocalsize((long)combinations);
-
-				// index offset, count, output buffer
-				cl.SetParameter((ulong)(loops * GLOBAL_WORKSIZE), GLOBAL_WORKSIZE,  resultArg);							
-
-				CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
-				Enqueue(cl.InvokeReturn<ulong>((long)combinations, LOCAL_WORKSIZE, bufferSize));
-				CleanExitHandler.ProcessExit();
 			}
 
 			time.Stop();

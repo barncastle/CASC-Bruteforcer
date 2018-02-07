@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 
 namespace OpenCLlib
@@ -35,17 +36,16 @@ namespace OpenCLlib
 			this.Context = Accelerators.Select(x => new OpenCL() { Accelerator = x }).ToArray();
 		}
 
-
-		public long CalculateGlobalsize(long globalSize, long groupSize)
+		public BigInteger CalculateGlobalsize(BigInteger globalSize, BigInteger groupSize)
 		{
-			long r = globalSize % groupSize;
+			BigInteger r = globalSize % groupSize;
 			if (r == 0)
 				return globalSize;
 
 			return globalSize + groupSize - r;
 		}
 
-		public long CalculateLocalsize(long globalSize)
+		public BigInteger CalculateLocalsize(BigInteger globalSize)
 		{
 			// highest factor <= MaxWorkSize
 			for (long i = MaxLocalSize; i > 0; i--)
@@ -55,7 +55,7 @@ namespace OpenCLlib
 			return 1; // unreachable
 		}
 
-		
+
 		public void SetKernel(string Kernel, string Method)
 		{
 			foreach (var c in Context)

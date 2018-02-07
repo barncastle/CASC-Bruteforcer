@@ -53,7 +53,7 @@ namespace OpenCLlib
 			int found = Body.IndexOf(EntryPoint);
 			int start = Body.IndexOf('(', found) + 1;
 			int end = Body.IndexOf(')', found);
-			
+
 			string parameter = Body.Substring(start, end - start);
 			var parameters = parameter.Split(',');
 
@@ -272,7 +272,7 @@ namespace OpenCLlib
 				string message = program.GetBuildLog(Accelerator.Device);
 				throw new ArgumentException(message);
 			}
-			catch(ComputeException)
+			catch (ComputeException)
 			{
 				string message = program.GetBuildLog(Accelerator.Device);
 				throw new ArgumentException(message);
@@ -288,7 +288,7 @@ namespace OpenCLlib
 			MethodInfo = new CLMethod(EntryPoint, OpenCLBody);
 			MethodSet = true;
 		}
-		
+
 		void CreateContext()
 		{
 			context = new ComputeContext(_device.Type, new ComputeContextPropertyList(Accelerator.Device.Platform), null, IntPtr.Zero);
@@ -346,7 +346,7 @@ namespace OpenCLlib
 		{
 			this.GetType().GetMethod(nameof(SetArgumentDirect)).MakeGenericMethod(genericarg.GetType().GetGenericArguments()[0]).Invoke(this, new object[] { index, genericarg });
 		}
-		
+
 		public void SetParameter(params object[] arguments)
 		{
 			for (int i = 0; i < arguments.Length; i++)
@@ -419,25 +419,20 @@ namespace OpenCLlib
 
 		public T[] ExecuteReturn<T>(long Worksize, long? LocalWorksize, long WorkOffset, int OutSize) where T : struct
 		{
-			T[] Returned = new T[OutSize];
-
 			SetArgs();
-			
-			if(LocalWorksize.HasValue)
+
+			if (LocalWorksize.HasValue)
 			{
 				queue.Execute(kernel, new long[] { WorkOffset }, new long[] { Worksize }, new long[] { LocalWorksize.Value }, null);
-			}				
+			}
 			else
 			{
 				queue.Execute(kernel, new long[] { WorkOffset }, new long[] { Worksize }, null, null);
 			}
-				
-
-			for (int i = 0; i < MethodInfo.Arguments.Length; i++)
-			{
-				if (MethodInfo.Arguments[i].CopyBack)
-					queue.ReadFromBuffer((ComputeBuffer<T>)MethodInfo.Arguments[i].ComputeMemory, ref Returned, false, null);
-			}
+						
+			T[] Returned = new T[OutSize];
+			var copyBack = MethodInfo.Arguments.First(x => x.CopyBack);
+			queue.ReadFromBuffer((ComputeBuffer<T>)copyBack.ComputeMemory, ref Returned, true, null);
 
 			queue.Finish();
 
