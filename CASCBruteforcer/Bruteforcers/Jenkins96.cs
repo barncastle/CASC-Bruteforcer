@@ -125,7 +125,7 @@ namespace CASCBruteforcer.Bruteforcers
 
 			// resize mask to next % 12 for faster jenkins
 			byte[] maskdata = Encoding.ASCII.GetBytes(mask);
-			Array.Resize(ref maskdata, (mask.Length + (12 - mask.Length % 12) % 12));
+			Array.Resize(ref maskdata, (int)AlignTo(mask.Length, 12));
 
 			// calculate the indicies of the wildcard chars
 			byte[] maskoffsets = Enumerable.Range(0, mask.Length).Where(i => mask[i] == '%').Select(i => (byte)i).ToArray();
@@ -159,7 +159,7 @@ namespace CASCBruteforcer.Bruteforcers
 			KernelWriter kernel = new KernelWriter(Properties.Resources.Jenkins);
 			kernel.ReplaceArray("DATA", maskdata);
 			kernel.ReplaceArray("OFFSETS", maskoffsets);
-			kernel.ReplaceArray("HASHES", TargetHashes.Select(x => x + "ULL")); // prefix ULL to remove the warnings..
+			kernel.ReplaceArray("HASHES", TargetHashes.Select(x => x + "UL")); // prefix ULL to remove the warnings..
 			kernel.Replace("DATA_SIZE_REAL", mask.Length);
 			kernel.ReplaceOffsetArray(TargetHashes);
 
@@ -174,33 +174,22 @@ namespace CASCBruteforcer.Bruteforcers
 
 			// alignment calculations			
 			BigInteger COMBINATIONS = BigInteger.Pow(39, maskoffsets.Length / (IsMirrored ? 2 : 1)); // calculate combinations
-			long LOCAL_WORKSIZE, GLOBAL_WORKSIZE; // TODO keep fiddling with these vars
+			long GLOBAL_WORKSIZE = 0, LOOPS = 0;
 			long WARP_SIZE = cl.WarpSize;
 
 			// Start the work
 			Console.WriteLine($"Starting Jenkins Hashing :: {COMBINATIONS} combinations ");
 			Stopwatch time = Stopwatch.StartNew();
+
+			COMBINATIONS = AlignTo(COMBINATIONS, WARP_SIZE); // align to the warp size
 			
-			COMBINATIONS += WARP_SIZE - (COMBINATIONS % WARP_SIZE); // pad to the warp size
-
-			if (COMBINATIONS < BASE_GLOBAL_WORKSIZE)
-			{
-				GLOBAL_WORKSIZE = (long)COMBINATIONS;
-
-				// index offset, count, output buffer
-				cl.SetParameter((ulong)0, resultArg);
-
-				CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
-				Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, null, bufferSize));
-				CleanExitHandler.ProcessExit();
-			}
-			else
+			if (COMBINATIONS > BASE_GLOBAL_WORKSIZE)
 			{
 				GLOBAL_WORKSIZE = BASE_GLOBAL_WORKSIZE - (BASE_GLOBAL_WORKSIZE % WARP_SIZE);
-				uint loops = (uint)Math.Ceiling(Math.Exp(BigInteger.Log(COMBINATIONS) - BigInteger.Log(GLOBAL_WORKSIZE)));
+				LOOPS = (uint)Math.Floor(Math.Exp(BigInteger.Log(COMBINATIONS) - BigInteger.Log(GLOBAL_WORKSIZE)));
 
 				// set up internal loop of GLOBAL_WORKSIZE
-				for (uint i = 0; i < loops; i++)
+				for (uint i = 0; i < LOOPS; i++)
 				{
 					// index offset, count, output buffer
 					cl.SetParameter((ulong)(i * GLOBAL_WORKSIZE), resultArg);
@@ -213,10 +202,22 @@ namespace CASCBruteforcer.Bruteforcers
 					CleanExitHandler.ProcessExit();
 
 					if (i == 0)
-						LogEstimation(loops, time.Elapsed.TotalSeconds);
+						LogEstimation(LOOPS, time.Elapsed.TotalSeconds);
 
 					COMBINATIONS -= GLOBAL_WORKSIZE;
 				}
+			}
+
+			if (COMBINATIONS > 0)
+			{
+				// index offset, count, output buffer
+				cl.SetParameter((ulong)(LOOPS * GLOBAL_WORKSIZE), resultArg);
+
+				GLOBAL_WORKSIZE = (long)AlignTo(COMBINATIONS, WARP_SIZE);
+
+				CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
+				Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, null, bufferSize));
+				CleanExitHandler.ProcessExit();
 			}
 
 			time.Stop();
@@ -226,14 +227,16 @@ namespace CASCBruteforcer.Bruteforcers
 			CleanExitHandler.IsProcessing = false;
 		}
 
+		private BigInteger AlignTo(BigInteger source, BigInteger factor) => (source + (factor - source % factor) % factor);
+
 
 		#region Validation
-		private void LogEstimation(uint loops, double seconds)
+		private void LogEstimation(long loops, double seconds)
 		{
 			Task.Run(() =>
 			{
 				DateTime estimate = DateTime.Now;
-				for (int x = 0; x < loops; x++)
+				for (uint x = 0; x < loops; x++)
 					estimate = estimate.AddSeconds(seconds);
 				Console.WriteLine($" Estimated Completion {estimate}");
 			});
