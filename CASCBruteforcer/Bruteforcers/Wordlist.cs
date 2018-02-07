@@ -9,6 +9,7 @@ using System.IO;
 using System.Globalization;
 using System.Net;
 using System.Diagnostics;
+using System.Collections.Concurrent;
 
 namespace CASCBruteforcer.Bruteforcers
 {
@@ -22,7 +23,7 @@ namespace CASCBruteforcer.Bruteforcers
 		private string[] Words;
 		private bool UseParallel;
 
-		private HashSet<string> ResultStrings;
+		private ConcurrentQueue<string> ResultStrings;
 
 		public void LoadParameters(params string[] args)
 		{
@@ -57,14 +58,23 @@ namespace CASCBruteforcer.Bruteforcers
 			}
 
 			// init variables
-			ResultStrings = new HashSet<string>();
+			ResultStrings = new ConcurrentQueue<string>();
 			ParseHashes();
 		}
 
 		public void Start()
 		{
-			for (int i = 0; i < Masks.Length; i++)
-				Run(i);
+			Console.WriteLine($"Starting Wordlist ");
+
+			if (UseParallel)
+			{
+				Parallel.For(0, Masks.Length, i => Run(i));
+			}
+			else
+			{
+				for (int i = 0; i < Masks.Length; i++)
+					Run(i);
+			}
 
 			LogAndExport();
 		}
@@ -83,13 +93,12 @@ namespace CASCBruteforcer.Bruteforcers
 			{
 				JenkinsHash j = new JenkinsHash();
 				if (TargetHashes.Contains(j.ComputeHash(mask)))
-					ResultStrings.Add(mask);
+					ResultStrings.Enqueue(mask);
 			}
 
 
 			// Start the work
-			Console.WriteLine($"Starting Wordlist ");
-			Stopwatch time = Stopwatch.StartNew();
+			
 
 			if (UseParallel)
 			{
@@ -98,19 +107,16 @@ namespace CASCBruteforcer.Bruteforcers
 					string temp = Normalise(mask.Replace("%", x));
 					JenkinsHash j = new JenkinsHash();
 					if (TargetHashes.Contains(j.ComputeHash(temp)))
-						ResultStrings.Add(temp);
+						ResultStrings.Enqueue(temp);
 				});
 			}
 			else
 			{
 				JenkinsHash j = new JenkinsHash();
 				var found = Words.Select(x => Normalise(mask.Replace("%", x))).Where(x => TargetHashes.Contains(j.ComputeHash(x)));
-				if (found.Any())
-					ResultStrings.UnionWith(found);
+				foreach (var f in found)
+					ResultStrings.Enqueue(f);
 			}
-
-			time.Stop();
-			Console.WriteLine($"Completed in {time.Elapsed.TotalSeconds.ToString("0.00")} secs");
 		}
 
 
