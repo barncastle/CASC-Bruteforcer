@@ -13,9 +13,12 @@ namespace OpenCLlib
 		public OpenCL[] Context;
 		public event EventHandler<double> ProgressChangedEvent;
 
-		public long WarpSize => !Accelerators.All(x => x.Vendor.ToLower().Contains("amd")) ? 32 : 64;
+		public long WarpSize => !Accelerators.All(x => x.Device.VendorId == (int)Vendor.AMD) ? 32 : 64;
 		public long MaxLocalSize => Accelerators.Min(x => x.Device.MaxWorkGroupSize);
-		
+
+		public bool HasNVidia => Accelerators.Any(x => x.Device.VendorId == (int)Vendor.INTEL);
+		public bool HasAMD => Accelerators.Any(x => x.Device.VendorId == (int)Vendor.AMD);
+
 
 		public MultiCL(ComputeDeviceTypes filter = ComputeDeviceTypes.All)
 		{
@@ -27,10 +30,8 @@ namespace OpenCLlib
 			var accelerators = AcceleratorDevice.All.Where(x => filter.HasFlag(x.Type));
 
 			// remove Intel graphics if there is a GPU
-			if (filter == ComputeDeviceTypes.Gpu && accelerators.Any(x => !x.Vendor.ToLower().Contains("intel")))
-			{
-				accelerators = accelerators.Where(x => !x.Vendor.ToLower().Contains("intel"));
-			}
+			if (filter == ComputeDeviceTypes.Gpu && !accelerators.All(x => x.Device.VendorId == (int)Vendor.INTEL))
+				accelerators = accelerators.Where(x => x.Device.VendorId != (int)Vendor.INTEL);
 
 			this.Accelerators = accelerators.ToArray();
 			this.Context = Accelerators.Select(x => new OpenCL() { Accelerator = x }).ToArray();
@@ -141,6 +142,13 @@ namespace OpenCLlib
 
 			Task.WaitAll(Tasks);
 			return Tasks.SelectMany(x => x.Result).ToArray();
+		}
+
+		enum Vendor
+		{
+			AMD = 1002,
+			NVIDIA = 4318,
+			INTEL = 32902,
 		}
 
 	}

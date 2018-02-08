@@ -18,7 +18,7 @@ namespace CASCBruteforcer.Bruteforcers
 {
 	class Jenkins96 : IHash
 	{
-		const long BASE_GLOBAL_WORKSIZE = uint.MaxValue; // sizeof(size_t) usually uint
+		private long BASE_GLOBAL_WORKSIZE = uint.MaxValue - 63; // sizeof(size_t) usually uint, aligned to % 64 warp
 
 		const string CHECKFILES_URL = "https://bnet.marlam.in/checkFiles.php";
 
@@ -182,10 +182,14 @@ namespace CASCBruteforcer.Bruteforcers
 			Stopwatch time = Stopwatch.StartNew();
 
 			COMBINATIONS = AlignTo(COMBINATIONS, WARP_SIZE); // align to the warp size
-			
+
+			// nvidia + too many threads + lots of wildcards = out of resources
+			if (cl.HasNVidia && maskoffsets.Length > 7)
+				BASE_GLOBAL_WORKSIZE -= (maskoffsets.Length - 7) * 613566752;
+
 			if (COMBINATIONS > BASE_GLOBAL_WORKSIZE)
 			{
-				GLOBAL_WORKSIZE = BASE_GLOBAL_WORKSIZE - (BASE_GLOBAL_WORKSIZE % WARP_SIZE);
+				GLOBAL_WORKSIZE = (long)ReduceTo(BASE_GLOBAL_WORKSIZE, WARP_SIZE);
 				LOOPS = (uint)Math.Floor(Math.Exp(BigInteger.Log(COMBINATIONS) - BigInteger.Log(GLOBAL_WORKSIZE)));
 
 				// set up internal loop of GLOBAL_WORKSIZE
@@ -228,6 +232,7 @@ namespace CASCBruteforcer.Bruteforcers
 		}
 
 		private BigInteger AlignTo(BigInteger source, BigInteger factor) => (source + (factor - source % factor) % factor);
+		private BigInteger ReduceTo(BigInteger source, BigInteger factor) => source - (source % factor);
 
 
 		#region Validation
