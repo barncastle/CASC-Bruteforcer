@@ -172,6 +172,8 @@ namespace CASCBruteforcer.Bruteforcers
 			int bufferSize = (TargetHashes.Count + (8 - TargetHashes.Count % 8) % 8); // buffer should be 64 byte aligned
 			var resultArg = CLArgument<ulong>.CreateReturn(bufferSize);
 
+			var hashesArg = CLArgument<ulong>.CreateReadonlyArray(TargetHashes.ToArray());
+
 			// alignment calculations			
 			BigInteger COMBINATIONS = BigInteger.Pow(39, maskoffsets.Length / (IsMirrored ? 2 : 1)); // calculate combinations
 			long GLOBAL_WORKSIZE = 0, LOOPS = 0;
@@ -192,7 +194,7 @@ namespace CASCBruteforcer.Bruteforcers
 				for (uint i = 0; i < LOOPS; i++)
 				{
 					// index offset, count, output buffer
-					cl.SetParameter((ulong)(i * GLOBAL_WORKSIZE), resultArg);
+					cl.SetParameter((ulong)(i * GLOBAL_WORKSIZE), hashesArg, resultArg);
 
 					// my card crashes if it is going full throttle and I forcibly exit the kernel
 					// this overrides the default exit behaviour and waits for a break in GPU processing before exiting
@@ -211,7 +213,7 @@ namespace CASCBruteforcer.Bruteforcers
 			if (COMBINATIONS > 0)
 			{
 				// index offset, count, output buffer
-				cl.SetParameter((ulong)(LOOPS * GLOBAL_WORKSIZE), resultArg);
+				cl.SetParameter((ulong)(LOOPS * GLOBAL_WORKSIZE), hashesArg, resultArg);
 
 				GLOBAL_WORKSIZE = (long)AlignTo(COMBINATIONS, WARP_SIZE);
 

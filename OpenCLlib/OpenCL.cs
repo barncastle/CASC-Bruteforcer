@@ -122,6 +122,16 @@ namespace OpenCLlib
 			return arg;
 		}
 
+		public static CLArgument<T> CreateReadonlyArray(T[] Data)
+		{
+			CLArgument<T> arg = new CLArgument<T>
+			{
+				Data = Data,
+				Flags = MemoryFlags.ReadOnly | MemoryFlags.UseHostPointer
+			};
+			return arg;
+		}
+
 		public static CLArgument<T> CreateValue(T Value)
 		{
 			CLArgument<T> arg = new CLArgument<T>
