@@ -10,7 +10,7 @@
 // Constants
 constant uint Offsets[OFFSETS_SIZE] = { {OFFSETS} };
 constant char Charset[39] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_- ";
-//constant ulong HashLookup[HASHES_SIZE] = { {HASHES} }; // hashes to find, sorted by first byte
+constant ulong HashLookup[HASHES_SIZE] = { {HASHES} }; // hashes to find, sorted by first byte
 constant ushort HashOffsets[256] = { {HASH_OFFSETS} }; // offset of first hash with first byte in HashLookup
 
 
@@ -18,7 +18,7 @@ uint rotl(uint bits, uint amount) {
 	return (bits << amount) | (bits >> (32 - amount));
 }
 
-uint jenkins96(char *k, global ulong *HashLookup) {
+uint jenkins96(char *k) {
 
 	uint a, b, c;
 	a = b = c = HASH_PRIME;
@@ -69,7 +69,7 @@ uint jenkins96(char *k, global ulong *HashLookup) {
 	return result_index;
 }
 
-kernel void Bruteforce(ulong offset, global ulong *HashLookup, global ulong *result) {
+kernel void Bruteforce(ulong offset, global ulong *result) {
 
 	const ulong id = get_global_id(0);
 	const ulong index = id + offset;
@@ -86,11 +86,11 @@ kernel void Bruteforce(ulong offset, global ulong *HashLookup, global ulong *res
 		quotient *= NEXT_CHAR; // divide the number by the base to calculate the next character (inverse multiplier is faster)
 	}
 
-	result[jenkins96(&mask, HashLookup)] = index;
+	result[jenkins96(&mask)] = index;
 }
 
 
-kernel void BruteforceMirrored(ulong offset, global ulong *HashLookup, global ulong *result) {
+kernel void BruteforceMirrored(ulong offset, global ulong *result) {
 
 	const ulong index = get_global_id(0) + offset;
 	char mask[DATA_SIZE] = {{DATA}}; // base string bytes
@@ -106,5 +106,5 @@ kernel void BruteforceMirrored(ulong offset, global ulong *HashLookup, global ul
 		quotient *= NEXT_CHAR; // divide the number by the base to calculate the next character (inverse multiplier is faster)
 	}
 
-	result[jenkins96(&mask, HashLookup)] = index;
+	result[jenkins96(&mask)] = index;
 }
