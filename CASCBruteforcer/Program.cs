@@ -33,6 +33,9 @@ namespace CASCBruteforcer
 				case "wordlist":
 					hash = new Wordlist();
 					break;
+				case "variation":
+					hash = new VarientGen();
+					break;
 				default:
 					throw new ArgumentException("Invalid hash type");
 			}
