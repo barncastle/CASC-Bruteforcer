@@ -159,7 +159,6 @@ namespace CASCBruteforcer.Bruteforcers
 			KernelWriter kernel = new KernelWriter(Properties.Resources.Jenkins);
 			kernel.ReplaceArray("DATA", maskdata);
 			kernel.ReplaceArray("OFFSETS", maskoffsets);
-			kernel.ReplaceArray("HASHES", TargetHashes.Select(x => x + "UL")); // prefix ULL to remove the warnings..
 			kernel.Replace("DATA_SIZE_REAL", mask.Length);
 			kernel.ReplaceOffsetArray(TargetHashes);
 

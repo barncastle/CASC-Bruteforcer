@@ -37,6 +37,7 @@ namespace CASCBruteforcer.Helpers
 		{
 			var buckets = array.GroupBy(Jenkins96.HashSort).OrderBy(x => x.Key).ToDictionary(x => x.Key, x => (ushort)x.Count());
 			ushort[] offsets = new ushort[256]; // offset of each first byte
+			int maxbucket = buckets.Max(x => x.Value);
 
 			ushort count = 0;
 			foreach(var bucket in buckets)
@@ -45,8 +46,11 @@ namespace CASCBruteforcer.Helpers
 				count += bucket.Value;
 			}
 
-			Replace("BUCKET_SIZE", buckets.Max(x => x.Value)); // biggest bucket size
+			Replace("BUCKET_SIZE", maxbucket); // biggest bucket size
 			Replace("HASH_OFFSETS", string.Join(",", offsets));
+
+			// apply hashes + pad to bucket size, prefix UL to remove the warnings..
+			ReplaceArray("HASHES", array.Concat(new ulong[maxbucket]).Select(x => x + "UL")); 
 		}
 
 

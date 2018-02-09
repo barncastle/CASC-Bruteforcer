@@ -19,9 +19,9 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private ListfileHandler ListfileHandler;
 		private string[] Masks;
-		private HashSet<ulong> TargetHashes;
+		private ulong[] TargetHashes;
 		private string[] Words;
-		private bool UseParallel;
+		private uint ParallelFactor = 0;
 
 		private ConcurrentQueue<string> ResultStrings;
 
@@ -43,8 +43,9 @@ namespace CASCBruteforcer.Bruteforcers
 			if (Masks == null || Masks.Length == 0)
 				throw new ArgumentException("No valid masks");
 
-			// parallel flag
-			UseParallel = (args.Length > 2 && args[2].Trim() == "1");
+			// parallel factor
+			if (args.Length > 2)
+				uint.TryParse(args[2].Trim(), out ParallelFactor);
 
 			// grab the known listfile
 			ListfileHandler = new ListfileHandler();
@@ -66,9 +67,9 @@ namespace CASCBruteforcer.Bruteforcers
 		{
 			Console.WriteLine($"Starting Wordlist ");
 
-			if (UseParallel)
+			if (ParallelFactor > 0)
 			{
-				Parallel.For(0, Masks.Length, i => Run(i));
+				Parallel.For(0, Masks.Length, new ParallelOptions() { MaxDegreeOfParallelism = (int)ParallelFactor }, i => Run(i));
 			}
 			else
 			{
@@ -89,7 +90,7 @@ namespace CASCBruteforcer.Bruteforcers
 				Console.WriteLine($"Error: Templates must contain exactly one '%' character. `{mask}`");
 				return;
 			}
-			else if(wildcardcount == 0)
+			else if (wildcardcount == 0)
 			{
 				JenkinsHash j = new JenkinsHash();
 				if (TargetHashes.Contains(j.ComputeHash(mask)))
@@ -98,22 +99,22 @@ namespace CASCBruteforcer.Bruteforcers
 
 
 			// Start the work
-			
 
-			if (UseParallel)
+
+			if (ParallelFactor > 0)
 			{
 				Parallel.ForEach(Words, x =>
 				{
 					string temp = Normalise(mask.Replace("%", x));
 					JenkinsHash j = new JenkinsHash();
-					if (TargetHashes.Contains(j.ComputeHash(temp)))
+					if (Array.BinarySearch(TargetHashes, j.ComputeHash(temp)) > -1)
 						ResultStrings.Enqueue(temp);
 				});
 			}
 			else
 			{
-				JenkinsHash j = new JenkinsHash();
-				var found = Words.Select(x => Normalise(mask.Replace("%", x))).Where(x => TargetHashes.Contains(j.ComputeHash(x)));
+				JenkinsHash j = new JenkinsHash();				
+				var found = Words.Select(x => Normalise(mask.Replace("%", x))).Where(x => Array.BinarySearch(TargetHashes, j.ComputeHash(x)) > -1);
 				foreach (var f in found)
 					ResultStrings.Enqueue(f);
 			}
@@ -192,16 +193,18 @@ namespace CASCBruteforcer.Bruteforcers
 
 				// parse items - hex and standard because why not
 				ulong dump = 0;
-				IEnumerable<ulong> hashes = new ulong[1]; // 0 hash is used as a dump
+				IEnumerable<ulong> hashes = new ulong[0]; // 0 hash is used as a dump
 #if DEBUG
 				hashes = hashes.Concat(new ulong[] { 4097458660625243137, 13345699920692943597 }); // test hashes for the README examples
 #endif
 				hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), NumberStyles.HexNumber, null, out dump)).Select(x => dump)); // hex
 				hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), out dump)).Select(x => dump)); // standard
-				TargetHashes = new HashSet<ulong>(hashes);
+				hashes = hashes.Distinct().OrderBy(x => x);
+
+				TargetHashes = hashes.ToArray();
 			}
 
-			if (TargetHashes == null || TargetHashes.Count <= 1)
+			if (TargetHashes == null || TargetHashes.Length < 1)
 				throw new ArgumentException("Unknown listfile is missing or empty");
 		}
 
@@ -209,7 +212,6 @@ namespace CASCBruteforcer.Bruteforcers
 
 		#region Helpers
 		private string Normalise(string s) => s.Trim().Replace("/", "\\").ToUpperInvariant();
-
 		#endregion
 	}
 }
