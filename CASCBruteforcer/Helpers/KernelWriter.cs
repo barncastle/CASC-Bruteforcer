@@ -50,7 +50,7 @@ namespace CASCBruteforcer.Helpers
 			Replace("HASH_OFFSETS", string.Join(",", offsets));
 
 			// apply hashes + pad to bucket size, prefix UL to remove the warnings..
-			ReplaceArray("HASHES", array.Concat(new ulong[maxbucket]).Select(x => x + "UL")); 
+			ReplaceArray("HASHES", array.Select(x => x + "UL")); 
 		}
 
 
