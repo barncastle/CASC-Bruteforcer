@@ -154,7 +154,7 @@ namespace CASCBruteforcer.Bruteforcers
 			IEnumerable<string> files = Enumerable.Empty<string>();
 			Parallel.For(RangeStart, RangeEnd, i => files = files.Concat(basefiles.Select(x => x + "_" + i.ToString("000") + ".wmo")));
 			files = files.Except(FileNames).Distinct();
-			Parallel.ForEach(lineendings, ext => files = files.Concat(basefiles.Select(x => x + ext)));
+			Parallel.ForEach(lineendings, ext => files = files.Concat(basefiles.Select(x => PathWithoutExtension(x))));
 			files = files.Except(FileNames).Distinct();
 
 			Console.WriteLine("  Generating WMO Groups");
