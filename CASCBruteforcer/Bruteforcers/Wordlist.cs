@@ -152,6 +152,8 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private void LogAndExport()
 		{
+			ResultStrings = new ConcurrentQueue<string>(ResultStrings.Distinct());
+
 			// log completion
 			Console.WriteLine($"Found {ResultStrings.Count}:");
 

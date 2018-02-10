@@ -11,7 +11,7 @@ namespace CASCBruteforcer.Helpers
 	class ListfileHandler
 	{
 		public const string UNKNOWN_LISTFILE_URL = "https://bnet.marlam.in/listfile.php?unk=1";
-		public const string KNOWN_LISTFILE_URL = "https://github.com/bloerwald/wow-listfile/blob/master/listfile.txt?raw=true";
+		public const string KNOWN_LISTFILE_URL = "https://bnet.marlam.in/listfile.php?t={0}"; //"https://github.com/bloerwald/wow-listfile/blob/master/listfile.txt?raw=true";
 
 		private readonly string[] PRODUCTS = new string[] { "wow", "wowt", "wow_beta" };
 
@@ -70,7 +70,7 @@ namespace CASCBruteforcer.Helpers
 
 			try
 			{
-				HttpWebRequest req = (HttpWebRequest)WebRequest.Create(KNOWN_LISTFILE_URL);
+				HttpWebRequest req = (HttpWebRequest)WebRequest.Create(string.Format(KNOWN_LISTFILE_URL, DateTime.Now.Ticks));
 				req.UserAgent = "CASCBruteforcer/1.0 (+https://github.com/barncastle/CASC-Bruteforcer)"; // for tracking purposes
 
 				using (WebResponse resp = req.GetResponse())
@@ -104,7 +104,7 @@ namespace CASCBruteforcer.Helpers
 			string url = UNKNOWN_LISTFILE_URL;
 
 			// product filter
-			url += "&product=" + (PRODUCTS.Contains(Product) ? Product : "wow_beta"); // default to wow_beta
+			//url += "&product=" + (PRODUCTS.Contains(Product) ? Product : "wow_beta"); // default to wow_beta
 			
 			// filter by filetype and the exclusions. "unk" is always included just incase
 			var extensions = new string[] { Normalise(Path.GetExtension(mask).TrimStart('.')) }.Concat(Exclusions).Distinct();
@@ -113,6 +113,9 @@ namespace CASCBruteforcer.Helpers
 				filetypes.RemoveAll(x => extensions.Any(y => x.Contains(y))); // remove wanted filetypes
 				url += $"&exclude={string.Join(",", filetypes)}";
 			}
+			
+
+			url += "&t=" + DateTime.Now.Ticks;
 
 			return url;
 		}

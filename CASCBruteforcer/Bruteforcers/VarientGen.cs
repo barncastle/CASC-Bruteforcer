@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CASCBruteforcer.Bruteforcers
@@ -47,6 +48,7 @@ namespace CASCBruteforcer.Bruteforcers
 		{
 			Console.WriteLine($"Starting Variation Generator ");
 
+			GenerateWMOGroups();
 			GenerateMaps();
 			GenerateMapTextures();
 			GenerateLodTextures();
@@ -139,6 +141,25 @@ namespace CASCBruteforcer.Bruteforcers
 			Validate(files);
 		}
 
+		private void GenerateWMOGroups()
+		{
+			const int RangeStart = 0;
+			const int RangeEnd = 50;
+			Regex regex = new Regex(@"(\d{3}\.wmo)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+			string[] lineendings = new string[] { "_LOD1.WMO", "_LOD2.WMO", "_LOD1.BLP", "_LOD2.BLP", "_LOD1_L.BLP", "_LOD2_L.BLP", "_LOD1_E.BLP", "_LOD2_E.BLP" };
+
+			var basefiles = FileNames.Where(x => x.EndsWith(".WMO") && !regex.IsMatch(x)).Select(x => PathWithoutExtension(x).TrimEnd('_')).Distinct();
+
+			IEnumerable<string> files = Enumerable.Empty<string>();
+			Parallel.For(RangeStart, RangeEnd, i => files = files.Concat(basefiles.Select(x => x + "_" + i.ToString("000") + ".wmo")));
+			files = files.Except(FileNames).Distinct();
+			Parallel.ForEach(lineendings, ext => files = files.Concat(basefiles.Select(x => x + ext)));
+			files = files.Except(FileNames).Distinct();
+
+			Console.WriteLine("  Generating WMO Groups");
+			Validate(files);
+		}
 
 		#endregion
 
