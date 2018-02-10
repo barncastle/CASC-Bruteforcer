@@ -1,5 +1,6 @@
 ﻿using CASCBruteforcer.Helpers;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -17,11 +18,11 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private ListfileHandler ListfileHandler;
 		private int ParallelFactor = 0;
-		private string[] FileNames;
-		private ulong[] TargetHashes;
+		private bool DoLongRunning = false;
 
-
-		private Queue<string> ResultStrings;
+		private ConcurrentBag<string> FileNames;
+		private ulong[] TargetHashes;		
+		private ConcurrentQueue<string> ResultStrings;
 
 		public void LoadParameters(params string[] args)
 		{
@@ -30,6 +31,8 @@ namespace CASCBruteforcer.Bruteforcers
 				if (!int.TryParse(args[2].Trim(), out ParallelFactor))
 					ParallelFactor = -1;
 
+			DoLongRunning = (args.Length > 2 && args[2].Trim() == "1");
+
 			// grab the known listfile
 			ListfileHandler = new ListfileHandler();
 			ListfileHandler.GetKnownListfile();
@@ -37,10 +40,10 @@ namespace CASCBruteforcer.Bruteforcers
 			if (!File.Exists("listfile.txt"))
 				throw new Exception("No known listfile found.");
 
-			FileNames = File.ReadAllLines("listfile.txt").Select(x => Normalise(x)).ToArray();
+			FileNames = new ConcurrentBag<string>(File.ReadAllLines("listfile.txt").Select(x => Normalise(x)));
 
 			// init variables
-			ResultStrings = new Queue<string>();
+			ResultStrings = new ConcurrentQueue<string>();
 			ParseHashes();
 		}
 
@@ -54,6 +57,16 @@ namespace CASCBruteforcer.Bruteforcers
 			GenerateLodTextures();
 			GenerateBakedTextures();
 			GenerateModelVariants();
+
+			DoLongRunning = true;
+
+			if (DoLongRunning)
+			{
+				Console.WriteLine("Starting long running generators...");
+				GenerateBones();
+				GenerateMinimaps();
+				GenerateSkin();
+			}
 
 			LogAndExport();
 		}
@@ -108,14 +121,14 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private void GenerateBakedTextures()
 		{
+			const int RangeStart = 100000;
+			const int RangeEnd = 200000;
+
 			string[] lineendings = new string[] { "_HD.BLP", "_E.BLP", "_S.BLP", ".BLP" };
+			string basefile = "TEXTURES\\BAKEDNPCTEXTURES\\CREATUREDISPLAYEXTRA-";
 
-			var basefiles = FileNames.Where(x => x.StartsWith("TEXTURES\\BAKEDNPCTEXTURES\\CREATUREDISPLAYEXTRA") && x.EndsWith(".BLP")).Select(x => PathWithoutExtension(x));
-			basefiles = basefiles.Concat(basefiles.Where(x => x.Substring(x.Length - 4).Contains("_")).Select(x => TakeBeforeChar(x, '_'))); // remove trailing _?.xxx
-			basefiles = basefiles.Distinct();
-
-			IEnumerable<string> files = Enumerable.Empty<string>();
-			Parallel.ForEach(lineendings, ext => files = files.Concat(basefiles.Select(x => x + ext)));
+			IEnumerable<string> files = Enumerable.Range(RangeStart, RangeEnd).AsParallel().Select(x => basefile + x.ToString("00000"));
+			Parallel.ForEach(lineendings, ext => files = files.Concat(files.Select(x => PathWithoutExtension(x) + ext)));
 			files = files.Except(FileNames).Distinct();
 
 			Console.WriteLine("  Generating Baked Textures");
@@ -161,6 +174,57 @@ namespace CASCBruteforcer.Bruteforcers
 			Validate(files);
 		}
 
+
+		private void GenerateBones()
+		{
+			string[] extensions = new string[] { ".M2", ".PHYS", ".SKEL" };
+			var basefiles = FileNames.Where(x => HasExtension(x, extensions)).Select(x => PathWithoutExtension(x)).Distinct();
+
+			IEnumerable<string> lineendings = Enumerable.Range(0, 100).Select(x => $"_{x.ToString("00")}.BONE");
+
+			Console.WriteLine("  Generating M2 Bones");
+			foreach (var basefile in basefiles)
+			{
+				IEnumerable<string> files = lineendings.AsParallel().Select(ext => basefile + ext);
+				files = files.Except(FileNames).Distinct();
+				Validate(files);
+			}
+		}
+
+		private void GenerateSkin()
+		{
+			const int MaxRange = 10;
+
+			string[] extensions = new string[] { ".M2", ".PHYS", ".SKEL" };
+			var basefiles = FileNames.Where(x => HasExtension(x, extensions)).Select(x => PathWithoutExtension(x)).Distinct();
+
+			IEnumerable<string> lineendings = Enumerable.Range(0, MaxRange).Select(x => $"{x.ToString("00")}.SKIN");
+			lineendings = lineendings.Concat(new[] { "_LOD01}.SKIN", "_LOD02.SKIN" });
+
+			Console.WriteLine("  Generating M2 Skins");
+			foreach (var lineending in lineendings)
+			{
+				IEnumerable<string> files = basefiles.AsParallel().Select(x => x + lineending);
+				files = files.Except(FileNames).Distinct();
+				
+				Validate(files);
+			}			
+		}
+
+		private void GenerateMinimaps()
+		{
+			var basefiles = FileNames.Where(x => x.StartsWith("WORLD\\MAPS\\")).Select(x => new DirectoryInfo(x).Parent.Name).Distinct();
+			IEnumerable<string> lineendings = Enumerable.Range(0, 64 * 64).Select(x => $"\\MAP{(x / 64).ToString("00")}_{(x % 64).ToString("00")}.BLP");
+
+			Console.WriteLine("  Generating Minimaps");
+			foreach (var basefile in basefiles)
+			{
+				IEnumerable<string> files = lineendings.AsParallel().Select(ext => "WORLD\\MAPS\\" + basefile + ext);
+				files = files.Except(FileNames).Distinct();
+				Validate(files);
+			}
+		}
+
 		#endregion
 
 
@@ -171,7 +235,10 @@ namespace CASCBruteforcer.Bruteforcers
 			{
 				JenkinsHash j = new JenkinsHash();
 				if (Array.BinarySearch(TargetHashes, j.ComputeHash(x)) > -1)
+				{
 					ResultStrings.Enqueue(x);
+					FileNames.Add(x); // add new files as we go
+				}
 			});
 		}
 
@@ -205,6 +272,8 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private void LogAndExport()
 		{
+			ResultStrings = new ConcurrentQueue<string>(ResultStrings.Distinct());
+
 			// log completion
 			Console.WriteLine($"Found {ResultStrings.Count}:");
 
