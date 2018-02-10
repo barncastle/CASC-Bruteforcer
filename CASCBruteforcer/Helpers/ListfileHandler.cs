@@ -36,7 +36,9 @@ namespace CASCBruteforcer.Helpers
 		public bool GetUnknownListfile(string name, string mask)
 		{
 			string URL = BuildURL(mask);
-			if (URL == PreviousURL) // don't redownload the same list
+			string baseURL = URL.Contains("&t") ? URL.Substring(0, URL.LastIndexOf('&')) : URL;
+
+			if (baseURL == PreviousURL) // don't redownload the same list
 				return false;
 			
 			try
@@ -50,7 +52,7 @@ namespace CASCBruteforcer.Helpers
 
 				req.Abort();
 
-				PreviousURL = URL; // update cache value
+				PreviousURL = baseURL; // update cache value
 				Console.WriteLine("Downloaded unknown listfile");
 			}
 			catch
@@ -111,9 +113,10 @@ namespace CASCBruteforcer.Helpers
 			if (!extensions.Any(x => string.IsNullOrWhiteSpace(x)))
 			{
 				filetypes.RemoveAll(x => extensions.Any(y => x.Contains(y))); // remove wanted filetypes
-				url += $"&exclude={string.Join(",", filetypes)}";
-			}
-			
+
+				string types = string.Join(",", filetypes);
+				url += $"&exclude={types}";
+			}			
 
 			url += "&t=" + DateTime.Now.Ticks;
 
