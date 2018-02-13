@@ -57,15 +57,13 @@ namespace CASCBruteforcer.Bruteforcers
 			GenerateLodTextures();
 			GenerateBakedTextures();
 			GenerateModelVariants();
-
-			DoLongRunning = true;
-
+			GenerateSkins();
+			
 			if (DoLongRunning)
 			{
 				Console.WriteLine("Starting long running generators...");
 				GenerateBones();
-				GenerateMinimaps();
-				GenerateSkin();
+				GenerateMinimaps();				
 			}
 
 			LogAndExport();
@@ -191,7 +189,7 @@ namespace CASCBruteforcer.Bruteforcers
 			}
 		}
 
-		private void GenerateSkin()
+		private void GenerateSkins()
 		{
 			const int MaxRange = 10;
 
@@ -199,7 +197,7 @@ namespace CASCBruteforcer.Bruteforcers
 			var basefiles = FileNames.Where(x => HasExtension(x, extensions)).Select(x => PathWithoutExtension(x)).Distinct();
 
 			IEnumerable<string> lineendings = Enumerable.Range(0, MaxRange).Select(x => $"{x.ToString("00")}.SKIN");
-			lineendings = lineendings.Concat(new[] { "_LOD01}.SKIN", "_LOD02.SKIN" });
+			lineendings = lineendings.Concat(new[] { "_LOD01.SKIN", "_LOD02.SKIN" });
 
 			Console.WriteLine("  Generating M2 Skins");
 			foreach (var lineending in lineendings)

@@ -164,7 +164,7 @@ namespace CASCBruteforcer.Bruteforcers
 
 			// load CL - filter contexts to the specific device type
 			MultiCL cl = new MultiCL(ComputeDevice);
-			Console.WriteLine($"Loading kernel - {TargetHashes.Count - 1} hashes. This may take a minute...");
+			Console.WriteLine($"Loading kernel - {TargetHashes.Count - 1} hashes");
 			cl.SetKernel(kernel.ToString(), IsMirrored ? "BruteforceMirrored" : "Bruteforce");
 
 			// output buffer arg

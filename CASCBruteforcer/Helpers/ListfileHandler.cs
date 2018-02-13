@@ -40,7 +40,7 @@ namespace CASCBruteforcer.Helpers
 
 			if (baseURL == PreviousURL) // don't redownload the same list
 				return false;
-			
+
 			try
 			{
 				HttpWebRequest req = (HttpWebRequest)WebRequest.Create(URL);
@@ -88,7 +88,7 @@ namespace CASCBruteforcer.Helpers
 			{
 				Console.WriteLine($"Unable to download known listfile from `{KNOWN_LISTFILE_URL}`");
 				return false;
-			}			
+			}
 		}
 
 
@@ -106,8 +106,9 @@ namespace CASCBruteforcer.Helpers
 			string url = UNKNOWN_LISTFILE_URL;
 
 			// product filter
-			//url += "&product=" + (PRODUCTS.Contains(Product) ? Product : "wow_beta"); // default to wow_beta
-			
+			if (!string.IsNullOrWhiteSpace(Product) && PRODUCTS.Contains(Product))
+				url += "&product=" + Product;
+
 			// filter by filetype and the exclusions. "unk" is always included just incase
 			var extensions = new string[] { Normalise(Path.GetExtension(mask).TrimStart('.')) }.Concat(Exclusions).Distinct();
 			if (!extensions.Any(x => string.IsNullOrWhiteSpace(x)))
@@ -116,7 +117,7 @@ namespace CASCBruteforcer.Helpers
 
 				string types = string.Join(",", filetypes);
 				url += $"&exclude={types}";
-			}			
+			}
 
 			url += "&t=" + DateTime.Now.Ticks;
 
@@ -124,6 +125,6 @@ namespace CASCBruteforcer.Helpers
 		}
 
 		private string Normalise(string s) => s.Trim().ToLower().Replace("%", "");
-		
+
 	}
 }
