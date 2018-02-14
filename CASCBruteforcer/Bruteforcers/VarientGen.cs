@@ -21,7 +21,10 @@ namespace CASCBruteforcer.Bruteforcers
 		private bool DoLongRunning = false;
 
 		private ConcurrentBag<string> FileNames;
-		private ulong[] TargetHashes;		
+		private ulong[] TargetHashes;
+		private ushort[] HashesLookup;
+		private ushort BucketSize;
+
 		private ConcurrentQueue<string> ResultStrings;
 
 		public void LoadParameters(params string[] args)
@@ -58,12 +61,13 @@ namespace CASCBruteforcer.Bruteforcers
 			GenerateBakedTextures();
 			GenerateModelVariants();
 			GenerateSkins();
-			
+
 			if (DoLongRunning)
 			{
 				Console.WriteLine("Starting long running generators...");
 				GenerateBones();
-				GenerateMinimaps();				
+				GenerateWMOMinimaps();
+				GenerateMinimaps();
 			}
 
 			LogAndExport();
@@ -156,7 +160,7 @@ namespace CASCBruteforcer.Bruteforcers
 		{
 			const int RangeStart = 0;
 			const int RangeEnd = 50;
-			Regex regex = new Regex(@"(\d{3}\.wmo)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+			Regex regex = new Regex(@"(.*?\d{3}(_?lod\d{1,2})?.wmo)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
 			string[] lineendings = new string[] { "_LOD1.WMO", "_LOD2.WMO", "_LOD1.BLP", "_LOD2.BLP", "_LOD1_L.BLP", "_LOD2_L.BLP", "_LOD1_E.BLP", "_LOD2_E.BLP" };
 
@@ -204,9 +208,9 @@ namespace CASCBruteforcer.Bruteforcers
 			{
 				IEnumerable<string> files = basefiles.AsParallel().Select(x => x + lineending);
 				files = files.Except(FileNames).Distinct();
-				
+
 				Validate(files);
-			}			
+			}
 		}
 
 		private void GenerateMinimaps()
@@ -215,9 +219,27 @@ namespace CASCBruteforcer.Bruteforcers
 			IEnumerable<string> lineendings = Enumerable.Range(0, 64 * 64).Select(x => $"\\MAP{(x / 64).ToString("00")}_{(x % 64).ToString("00")}.BLP");
 
 			Console.WriteLine("  Generating Minimaps");
-			foreach (var basefile in basefiles)
+			foreach (var le in lineendings)
 			{
-				IEnumerable<string> files = lineendings.AsParallel().Select(ext => "WORLD\\MAPS\\" + basefile + ext);
+				IEnumerable<string> files = basefiles.AsParallel().Select(x => "WORLD\\MAPS\\" + x + le);
+				files = files.Except(FileNames).Distinct();
+				Validate(files);
+			}
+		}
+
+		private void GenerateWMOMinimaps()
+		{
+			const int RangeEnd = 25;
+			Regex regex = new Regex(@"(.*?\d{3}.wmo)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+			IEnumerable<string> lineendings = Enumerable.Range(0, RangeEnd * RangeEnd).Select(x => $"_{(x / RangeEnd).ToString("00")}_{(x % RangeEnd).ToString("00")}.BLP");
+
+			var basefiles = FileNames.Where(x => x.EndsWith(".WMO") && regex.IsMatch(x)).Select(x => PathWithoutExtension(x).Replace("WORLD\\WMO\\","WORLD\\MINIMAPS\\WMO\\")).Distinct();
+
+			Console.WriteLine("  Generating WMO Minimaps");
+			foreach (var le in lineendings)
+			{
+				IEnumerable<string> files = basefiles.AsParallel().Select(x => x + le);
 				files = files.Except(FileNames).Distinct();
 				Validate(files);
 			}
@@ -231,8 +253,8 @@ namespace CASCBruteforcer.Bruteforcers
 		{
 			Parallel.ForEach(files, x =>
 			{
-				JenkinsHash j = new JenkinsHash();
-				if (Array.BinarySearch(TargetHashes, j.ComputeHash(x)) > -1)
+				ulong hash = new JenkinsHash().ComputeHash(x);
+				if (Array.BinarySearch(TargetHashes, HashesLookup[hash & 0xFF], BucketSize, hash) > -1)
 				{
 					ResultStrings.Enqueue(x);
 					FileNames.Add(x); // add new files as we go
@@ -319,13 +341,31 @@ namespace CASCBruteforcer.Bruteforcers
 #endif
 				hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), NumberStyles.HexNumber, null, out dump)).Select(x => dump)); // hex
 				hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), out dump)).Select(x => dump)); // standard
-				hashes = hashes.Distinct().OrderBy(x => x);
+				hashes = hashes.Distinct().OrderBy(Jenkins96.HashSort).ThenBy(x => x);
 
 				TargetHashes = hashes.ToArray();
+
+				BuildLookup();
 			}
 
 			if (TargetHashes == null || TargetHashes.Length < 1)
 				throw new ArgumentException("Unknown listfile is missing or empty");
+		}
+
+		private void BuildLookup()
+		{
+			var buckets = TargetHashes.GroupBy(Jenkins96.HashSort).OrderBy(x => x.Key).ToDictionary(x => x.Key, x => (ushort)x.Count());
+			HashesLookup = new ushort[256]; // offset of each first byte
+			BucketSize = buckets.Max(x => x.Value);
+
+			ushort count = 0;
+			foreach (var bucket in buckets)
+			{
+				HashesLookup[bucket.Key] = count;
+				count += bucket.Value;
+			}
+
+			Array.Resize(ref TargetHashes, TargetHashes.Length + BucketSize);
 		}
 
 		#endregion

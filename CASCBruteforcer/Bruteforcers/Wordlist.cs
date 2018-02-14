@@ -19,9 +19,12 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private ListfileHandler ListfileHandler;
 		private string[] Masks;
-		private ulong[] TargetHashes;
 		private string[] Words;
 		private uint ParallelFactor = 0;
+
+		private ulong[] TargetHashes;
+		private ushort[] HashesLookup;
+		private ushort BucketSize;
 
 		private ConcurrentQueue<string> ResultStrings;
 
@@ -99,22 +102,25 @@ namespace CASCBruteforcer.Bruteforcers
 
 
 			// Start the work
-
-
 			if (ParallelFactor > 0)
 			{
 				Parallel.ForEach(Words, x =>
 				{
 					string temp = Normalise(mask.Replace("%", x));
-					JenkinsHash j = new JenkinsHash();
-					if (Array.BinarySearch(TargetHashes, j.ComputeHash(temp)) > -1)
+					ulong hash = new JenkinsHash().ComputeHash(temp);
+					if (Array.BinarySearch(TargetHashes, HashesLookup[hash & 0xFF], BucketSize, hash) > -1)
 						ResultStrings.Enqueue(temp);
 				});
 			}
 			else
 			{
-				JenkinsHash j = new JenkinsHash();				
-				var found = Words.Select(x => Normalise(mask.Replace("%", x))).Where(x => Array.BinarySearch(TargetHashes, j.ComputeHash(x)) > -1);
+				JenkinsHash j = new JenkinsHash();
+
+				var found = from word in Words.Select(x => Normalise(mask.Replace("%", x)))
+							let h = j.ComputeHash(word)
+							where Array.BinarySearch(TargetHashes, HashesLookup[h & 0xFF], BucketSize, h) > -1
+							select word;
+
 				foreach (var f in found)
 					ResultStrings.Enqueue(f);
 			}
@@ -201,13 +207,31 @@ namespace CASCBruteforcer.Bruteforcers
 #endif
 				hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), NumberStyles.HexNumber, null, out dump)).Select(x => dump)); // hex
 				hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), out dump)).Select(x => dump)); // standard
-				hashes = hashes.Distinct().OrderBy(x => x);
+				hashes = hashes.Distinct().OrderBy(Jenkins96.HashSort).ThenBy(x => x);
 
 				TargetHashes = hashes.ToArray();
+
+				BuildLookup();
 			}
 
 			if (TargetHashes == null || TargetHashes.Length < 1)
 				throw new ArgumentException("Unknown listfile is missing or empty");
+		}
+
+		private void BuildLookup()
+		{
+			var buckets = TargetHashes.GroupBy(Jenkins96.HashSort).OrderBy(x => x.Key).ToDictionary(x => x.Key, x => (ushort)x.Count());
+			HashesLookup = new ushort[256]; // offset of each first byte
+			BucketSize = buckets.Max(x => x.Value);
+
+			ushort count = 0;
+			foreach (var bucket in buckets)
+			{
+				HashesLookup[bucket.Key] = count;
+				count += bucket.Value;
+			}
+
+			Array.Resize(ref TargetHashes, TargetHashes.Length + BucketSize);
 		}
 
 		#endregion
