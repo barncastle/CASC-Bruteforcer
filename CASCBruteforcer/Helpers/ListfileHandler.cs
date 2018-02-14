@@ -13,7 +13,7 @@ namespace CASCBruteforcer.Helpers
 		public const string UNKNOWN_LISTFILE_URL = "https://bnet.marlam.in/listfile.php?unk=1";
 		public const string KNOWN_LISTFILE_URL = "https://bnet.marlam.in/listfile.php?t={0}"; //"https://github.com/bloerwald/wow-listfile/blob/master/listfile.txt?raw=true";
 
-		private readonly string[] PRODUCTS = new string[] { "wow", "wowt", "wow_beta" };
+		private readonly string[] PRODUCTS = new string[] { "wow", "wowt", "wow_beta", "wowz" };
 
 		private readonly string Product;
 		private readonly string[] Exclusions;
