@@ -254,7 +254,7 @@ namespace CASCBruteforcer.Bruteforcers
 			Parallel.ForEach(files, x =>
 			{
 				ulong hash = new JenkinsHash().ComputeHash(x);
-				if (Array.BinarySearch(TargetHashes, HashesLookup[hash & 0xFF], BucketSize, hash) > -1)
+				if (Array.IndexOf(TargetHashes, hash, HashesLookup[hash & 0xFF], BucketSize) > -1)
 				{
 					ResultStrings.Enqueue(x);
 					FileNames.Add(x); // add new files as we go

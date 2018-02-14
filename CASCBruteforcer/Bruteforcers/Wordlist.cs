@@ -108,7 +108,7 @@ namespace CASCBruteforcer.Bruteforcers
 				{
 					string temp = Normalise(mask.Replace("%", x));
 					ulong hash = new JenkinsHash().ComputeHash(temp);
-					if (Array.BinarySearch(TargetHashes, HashesLookup[hash & 0xFF], BucketSize, hash) > -1)
+					if (Array.IndexOf(TargetHashes, hash, HashesLookup[hash & 0xFF], BucketSize) > -1)
 						ResultStrings.Enqueue(temp);
 				});
 			}
@@ -118,7 +118,7 @@ namespace CASCBruteforcer.Bruteforcers
 
 				var found = from word in Words.Select(x => Normalise(mask.Replace("%", x)))
 							let h = j.ComputeHash(word)
-							where Array.BinarySearch(TargetHashes, HashesLookup[h & 0xFF], BucketSize, h) > -1
+							where Array.IndexOf(TargetHashes, h, HashesLookup[h & 0xFF], BucketSize) > -1
 							select word;
 
 				foreach (var f in found)
