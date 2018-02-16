@@ -36,7 +36,7 @@ namespace CASCBruteforcer.Bruteforcers
 			// format + validate template masks
 			if (File.Exists(args[1]))
 			{
-				Masks = File.ReadAllLines(args[1]).Select(x => Normalise(x)).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
+				Masks = File.ReadAllLines(args[1]).Select(x => Normalise(x)).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToArray();
 			}
 			else if (!string.IsNullOrWhiteSpace(args[1]))
 			{
@@ -54,7 +54,10 @@ namespace CASCBruteforcer.Bruteforcers
 			ListfileHandler = new ListfileHandler();
 			if (ListfileHandler.GetKnownListfile() || File.Exists("listfile.txt"))
 			{
-				Words = File.ReadAllLines("listfile.txt").SelectMany(x => x.Split(new char[] { '_', '/', ' ', '-', '.' })).Distinct().ToArray();
+				Words = File.ReadAllLines("listfile.txt")
+						.SelectMany(x => x.Split(new char[] { '_', '/', ' ', '-', '.' }))
+						.Concat(new[] { "_", "/", " ", "-", "." })
+						.Distinct().ToArray();
 			}
 			else
 			{
