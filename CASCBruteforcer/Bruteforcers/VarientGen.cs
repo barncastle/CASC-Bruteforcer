@@ -54,7 +54,7 @@ namespace CASCBruteforcer.Bruteforcers
 		{
 			Console.WriteLine($"Starting Variation Generator ");
 
-			GenerateWMOGroups();
+			GenerateTileSets();
 			GenerateMaps();
 			GenerateMapTextures();
 			GenerateLodTextures();
@@ -65,6 +65,7 @@ namespace CASCBruteforcer.Bruteforcers
 			if (DoLongRunning)
 			{
 				Console.WriteLine("Starting long running generators...");
+				GenerateWMOGroups();
 				GenerateBones();
 				GenerateWMOMinimaps();
 				GenerateMinimaps();
@@ -169,10 +170,36 @@ namespace CASCBruteforcer.Bruteforcers
 			IEnumerable<string> files = Enumerable.Empty<string>();
 			Parallel.For(RangeStart, RangeEnd, i => files = files.Concat(basefiles.Select(x => x + "_" + i.ToString("000") + ".wmo")));
 			files = files.Except(FileNames).Distinct();
-			Parallel.ForEach(lineendings, ext => files = files.Concat(basefiles.Select(x => PathWithoutExtension(x))));
+			Console.WriteLine("  Generating WMO Groups");
+			Validate(files);
+
+			foreach(var le in lineendings)
+			{
+				IEnumerable<string> filesext = files.Select(x => PathWithoutExtension(x) + le);
+				filesext = filesext.Except(FileNames).Distinct();
+				Validate(filesext);
+			}			
+		}
+
+		private void GenerateTileSets()
+		{
+			List<string> lineendings = new List<string>() {
+				"_256_H.BLP", "_256_S.BLP", "_512_H.BLP", "_512_S.BLP", "_1024_H.BLP", "_1024_S.BLP",
+				"_256.BLP", "_512.BLP", "_1024.BLP","_H.BLP", "_S.BLP", ".BLP",
+			};
+
+			var basefiles = FileNames.Where(x => x.EndsWith(".BLP") && x.StartsWith("TILESET")).Select(x =>
+			{
+				lineendings.ForEach(e => x = x.Replace(e, ""));
+				return x;
+			})
+			.Distinct();
+
+			IEnumerable<string> files = Enumerable.Empty<string>();
+			Parallel.ForEach(lineendings, ext => files = files.Concat(basefiles.Select(x => x + ext)));
 			files = files.Except(FileNames).Distinct();
 
-			Console.WriteLine("  Generating WMO Groups");
+			Console.WriteLine("  Generating Tilesets");
 			Validate(files);
 		}
 
@@ -234,7 +261,7 @@ namespace CASCBruteforcer.Bruteforcers
 
 			IEnumerable<string> lineendings = Enumerable.Range(0, RangeEnd * RangeEnd).Select(x => $"_{(x / RangeEnd).ToString("00")}_{(x % RangeEnd).ToString("00")}.BLP");
 
-			var basefiles = FileNames.Where(x => x.EndsWith(".WMO") && regex.IsMatch(x)).Select(x => PathWithoutExtension(x).Replace("WORLD\\WMO\\","WORLD\\MINIMAPS\\WMO\\")).Distinct();
+			var basefiles = FileNames.Where(x => x.EndsWith(".WMO") && regex.IsMatch(x)).Select(x => PathWithoutExtension(x).Replace("WORLD\\WMO\\", "WORLD\\MINIMAPS\\WMO\\")).Distinct();
 
 			Console.WriteLine("  Generating WMO Minimaps");
 			foreach (var le in lineendings)
