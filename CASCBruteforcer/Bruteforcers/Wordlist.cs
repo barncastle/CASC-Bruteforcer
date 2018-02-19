@@ -10,6 +10,7 @@ using System.Globalization;
 using System.Net;
 using System.Diagnostics;
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 
 namespace CASCBruteforcer.Bruteforcers
 {
@@ -44,20 +45,30 @@ namespace CASCBruteforcer.Bruteforcers
 			}
 
 			if (Masks == null || Masks.Length == 0)
-				throw new ArgumentException("No valid masks");
+				throw new ArgumentException("No valid masks.");
 
 			// parallel factor
 			if (args.Length > 2)
 				uint.TryParse(args[2].Trim(), out ParallelFactor);
 
-			// grab the known listfile
+			// grab the listfile, either the one from Marla or use the supplied argument
+			Console.WriteLine($"Starting Wordlist ");
+			Console.WriteLine("Loading Dictionary...");
+
 			ListfileHandler = new ListfileHandler();
-			if (ListfileHandler.GetKnownListfile() || File.Exists("listfile.txt"))
+			if (ListfileHandler.GetKnownListfile(out string listfile, args.Length > 3 ? args[3] : ""))
 			{
-				Words = File.ReadAllLines("listfile.txt")
-						.SelectMany(x => x.Split(new char[] { '_', '/', ' ', '-', '.' }))
-						.Concat(new[] { "_", "/", " ", "-", "." })
-						.Distinct().ToArray();
+				Regex capitalisedsplit = new Regex(@"(?<!^)(?=[A-Z.-\/_\s])", RegexOptions.Compiled); // splits by capitals and the standard stuff
+				Regex isCapitalised = new Regex(@"([A-Z][a-z])", RegexOptions.Compiled); // find upper next to lower
+
+				var lines = File.ReadAllLines(listfile);
+
+				var words = lines.SelectMany(x => x.Split(new char[] { '_', '/', ' ', '-', '.' })).Concat(new[] { "_", "/", " ", "-", "." });
+				if (lines.Any(x => isCapitalised.IsMatch(x))) // check we need to run the capitalised split
+					words = words.Concat(lines.SelectMany(x => capitalisedsplit.Split(x)));
+
+				Words = words.Distinct().ToArray();
+				Array.Resize(ref lines, 0); // delete the old strings
 			}
 			else
 			{
@@ -71,8 +82,6 @@ namespace CASCBruteforcer.Bruteforcers
 
 		public void Start()
 		{
-			Console.WriteLine($"Starting Wordlist ");
-
 			if (ParallelFactor > 0)
 			{
 				Parallel.For(0, Masks.Length, new ParallelOptions() { MaxDegreeOfParallelism = (int)ParallelFactor }, i => Run(i));
@@ -102,7 +111,6 @@ namespace CASCBruteforcer.Bruteforcers
 				if (TargetHashes.Contains(j.ComputeHash(mask)))
 					ResultStrings.Enqueue(mask);
 			}
-
 
 			// Start the work
 			if (ParallelFactor > 0)

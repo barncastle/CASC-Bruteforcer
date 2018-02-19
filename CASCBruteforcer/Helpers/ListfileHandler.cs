@@ -64,10 +64,18 @@ namespace CASCBruteforcer.Helpers
 			return true;
 		}
 
-		public bool GetKnownListfile()
+		public bool GetKnownListfile(out string filename, string localfile = "")
 		{
+			if (!string.IsNullOrWhiteSpace(localfile) && File.Exists(localfile))
+			{
+				filename = localfile;
+				return true;
+			}
+
+			filename = "listfile.txt";
+
 			// only redownload every few hours as this is updated as and when by the community
-			if (File.Exists("listfile.txt") && (DateTime.Now - File.GetLastWriteTime("listfile.txt")).TotalHours < 4)
+			if (File.Exists(filename) && (DateTime.Now - File.GetLastWriteTime(filename)).TotalHours < 4)
 				return true;
 
 			try
@@ -82,13 +90,13 @@ namespace CASCBruteforcer.Helpers
 				req.Abort();
 
 				Console.WriteLine("Downloaded known listfile");
-				return true;
 			}
 			catch
 			{
 				Console.WriteLine($"Unable to download known listfile from `{KNOWN_LISTFILE_URL}`");
-				return false;
 			}
+
+			return File.Exists(filename);
 		}
 
 

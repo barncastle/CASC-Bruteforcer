@@ -60,6 +60,7 @@ For a list of common filename structures [see here](https://wowdev.wiki/Filename
 #### Arguments
 1. Template (string) -  a file path to a list of templates or a single template using a `%` as the wildcard character
 2. Parallel (int) - (optional) defines the maximum degree of parallelism or 0 for none
+3. Wordlist (string) - (optional) file path to custom wordlist to use instead of the known filenames
 
 #### Examples
 To find `world/maps/gilneas/gilneas.tex`:

@@ -38,12 +38,10 @@ namespace CASCBruteforcer.Bruteforcers
 
 			// grab the known listfile
 			ListfileHandler = new ListfileHandler();
-			ListfileHandler.GetKnownListfile();
-
-			if (!File.Exists("listfile.txt"))
+			if (!ListfileHandler.GetKnownListfile(out string listfile))
 				throw new Exception("No known listfile found.");
 
-			FileNames = new ConcurrentBag<string>(File.ReadAllLines("listfile.txt").Select(x => Normalise(x)));
+			FileNames = new ConcurrentBag<string>(File.ReadAllLines(listfile).Select(x => Normalise(x)));
 
 			// init variables
 			ResultStrings = new ConcurrentQueue<string>();
