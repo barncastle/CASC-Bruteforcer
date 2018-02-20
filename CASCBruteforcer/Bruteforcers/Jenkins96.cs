@@ -254,7 +254,7 @@ namespace CASCBruteforcer.Bruteforcers
 		{
 			// dump everything into a collection and deal with it later
 			foreach (var r in results)
-				if (r != 0)
+				if (r != 0 && r < (ulong)TargetHashes.Count)
 					ResultQueue.Enqueue(r);
 		}
 
@@ -351,7 +351,7 @@ namespace CASCBruteforcer.Bruteforcers
 #endif
 			hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), NumberStyles.HexNumber, null, out dump)).Select(x => dump)); // hex
 			hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), out dump)).Select(x => dump)); // standard
-			hashes = hashes.OrderBy(HashSort); // order by first byte - IMPORTANT
+			hashes = hashes.Distinct().OrderBy(HashSort); // order by first byte - IMPORTANT
 
 			TargetHashes = new HashSet<ulong>(hashes);
 
