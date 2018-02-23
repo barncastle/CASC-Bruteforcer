@@ -254,7 +254,7 @@ namespace CASCBruteforcer.Bruteforcers
 		{
 			// dump everything into a collection and deal with it later
 			foreach (var r in results)
-				if (r != 0 && r < (ulong)TargetHashes.Count)
+				if (r != 0)
 					ResultQueue.Enqueue(r);
 		}
 
