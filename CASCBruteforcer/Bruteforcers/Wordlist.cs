@@ -65,7 +65,7 @@ namespace CASCBruteforcer.Bruteforcers
 
 				var words = lines.SelectMany(x => x.Split(new char[] { '_', '/', ' ', '-', '.' })).Concat(new[] { "_", "/", " ", "-", "." });
 				if (lines.Any(x => isCapitalised.IsMatch(x))) // check we need to run the capitalised split
-					words = words.Concat(lines.SelectMany(x => capitalisedsplit.Split(x)));
+					words = words.Concat(lines.SelectMany(x => capitalisedsplit.Split(x)).Except(words));
 
 				Words = words.Distinct().ToArray();
 				Array.Resize(ref lines, 0); // delete the old strings
@@ -99,13 +99,7 @@ namespace CASCBruteforcer.Bruteforcers
 		{
 			string mask = Normalise(Masks[m]);
 
-			int wildcardcount = mask.Count(x => x == '%');
-			if (wildcardcount > 1)
-			{
-				Console.WriteLine($"Error: Templates must contain exactly one '%' character. `{mask}`");
-				return;
-			}
-			else if (wildcardcount == 0)
+			if (!mask.Contains("%"))
 			{
 				JenkinsHash j = new JenkinsHash();
 				if (TargetHashes.Contains(j.ComputeHash(mask)))
