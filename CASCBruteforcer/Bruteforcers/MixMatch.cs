@@ -106,14 +106,14 @@ namespace CASCBruteforcer.Bruteforcers
 						queue.Add(path + "_" + temp + e);
 					});
 
-					Validate(queue);
+					Validate(ref queue);
 				}
 			}
 		}
 
 
 		#region Validation
-		private void Validate(ConcurrentBag<string> files)
+		private void Validate(ref ConcurrentBag<string> files)
 		{
 			Parallel.ForEach(files, x =>
 			{
