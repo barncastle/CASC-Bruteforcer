@@ -36,6 +36,9 @@ namespace CASCBruteforcer
 				case "variation":
 					hash = new VarientGen();
 					break;
+				case "mix":
+					hash = new MixMatch();
+					break;
 				default:
 					throw new ArgumentException("Invalid hash type");
 			}
