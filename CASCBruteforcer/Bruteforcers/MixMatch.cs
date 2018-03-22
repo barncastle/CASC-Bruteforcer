@@ -17,7 +17,8 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private ListfileHandler ListfileHandler;
 		private int MaxDepth;
-		private string FileFilter;
+		private string[] FileFilter;
+		private string Extension;
 		private string[] FileNames;
 
 		readonly private string[] Unwanted = new[]
@@ -26,7 +27,6 @@ namespace CASCBruteforcer.Bruteforcers
 			"\\NORTHREND\\", "\\CATACLYSM\\", "\\PANDARIA\\", "\\OUTLAND\\","\\PANDAREN\\",
 			"WORLD\\MAPTEXTURES\\", "WORLD\\MINIMAPS\\", "CHARACTER\\", "\\BAKEDNPCTEXTURES\\", "COMPONENTS\\"
 		};
-		readonly private string[] Extensions = new[] { ".OGG", ".BLP", ".M2", ".WMO", ".MP3", ".BLS" };
 
 		private ulong[] TargetHashes;
 		private ushort[] HashesLookup;
@@ -36,9 +36,25 @@ namespace CASCBruteforcer.Bruteforcers
 
 		public void LoadParameters(params string[] args)
 		{
-			FileFilter = args.Length > 1 ? args[0] : "";
+			if (args.Length == 1 || args[1].Trim() == "%")
+				throw new ArgumentException("No filter provided.");
 
-			if (args.Length < 2 || !int.TryParse(args[1], out MaxDepth))
+			if (string.IsNullOrWhiteSpace(args[0]))
+				throw new ArgumentException("Filter is empty.");
+			if (args[0].Count(x => x == '%') > 1)
+				throw new ArgumentException("Filter can't have more than one wildcard character.");
+
+			// attempt to remove extensions
+			string filter = Normalise(args[1].Trim());
+			if (filter.LastIndexOf('.') >= filter.Length - 5)
+				filter = filter.Substring(0, filter.LastIndexOf('.'));
+
+			FileFilter = filter.Split(new[] { "%" }, StringSplitOptions.RemoveEmptyEntries);
+
+			if (args.Length > 2 && !string.IsNullOrWhiteSpace(args[2]))
+				Extension = Normalise("." + args[2].Trim().TrimStart('.'));
+
+			if (args.Length < 4 || !int.TryParse(args[3], out MaxDepth))
 				MaxDepth = 5;
 			if (MaxDepth < 1)
 				MaxDepth = 1;
@@ -61,31 +77,38 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private void Run()
 		{
-			Console.WriteLine($"Starting MixMatch ");
 			Console.WriteLine("Loading Dictionary...");
+
+			bool checkExtension = !string.IsNullOrWhiteSpace(Extension);
 
 			// store all line endings
 			HashSet<string> endings = new HashSet<string>();
 			foreach (var o in FileNames)
 			{
 				int _s = o.Length - o.Replace("_", "").Length; // underscore count
-				var parts = Path.GetFileNameWithoutExtension(o).Split('_').Reverse();
+				var parts = Path.GetFileName(o).Split('_').Reverse();
+
+				if (checkExtension && Path.GetExtension(o) != Extension)
+					continue;
 
 				for (int i = 1; i <= _s && i <= MaxDepth; i++) // split by _s up to depth
 				{
-					endings.Add(string.Join("_", parts.Take(i).Reverse())); // exclude prefixed underscore
-					endings.Add("_" + string.Join("_", parts.Take(i).Reverse())); // prefix underscore
+					string part = string.Join("_", parts.Take(i).Reverse());
+					endings.Add(part); // exclude prefixed underscore
+					endings.Add("_" + part); // prefix underscore
 				}
 			}
 
 			Console.WriteLine("Loading Filenames...");
 
 			// load files we want to permute
-			Queue<string> formattednames = new Queue<string>(FileNames.Where(x => !Unwanted.Any(y => x.Contains(y)) && x.ToLower().EndsWith(FileFilter)).Distinct());
+			var filterednames = FileNames.Where(x => !Unwanted.Any(y => x.Contains(y)) && FileFilter.All(y => x.Contains(y))).Distinct();
 
+			Queue<string> formattednames = new Queue<string>(filterednames);
 			if (formattednames.Count == 0)
 				throw new Exception($"No filenames match the provided filter `{FileFilter}`.");
-			
+
+			Console.WriteLine($"Starting MixMatch ");
 			while (formattednames.Count > 0)
 			{
 				ConcurrentBag<string> queue = new ConcurrentBag<string>();
@@ -99,7 +122,7 @@ namespace CASCBruteforcer.Bruteforcers
 				// suffix known endings at each underscore
 				for (int i = 0; i <= _s && i <= MaxDepth; i++)
 				{
-					string temp = string.Join("_", parts.Skip(i).Reverse());
+					string temp = "\\" + string.Join("_", parts.Skip(i).Reverse());
 					Parallel.ForEach(endings, e =>
 					{
 						queue.Add(path + temp + e);
@@ -118,12 +141,9 @@ namespace CASCBruteforcer.Bruteforcers
 			Parallel.ForEach(files, x =>
 			{
 				var j = new JenkinsHash();
-				foreach (var e in Extensions)
-				{
-					ulong hash = j.ComputeHash(x + e); // try each extension
-					if (Array.IndexOf(TargetHashes, hash, HashesLookup[hash & 0xFF], BucketSize) > -1)
-						ResultStrings.Enqueue(x);
-				}
+				ulong hash = j.ComputeHash(x);
+				if (Array.IndexOf(TargetHashes, hash, HashesLookup[hash & 0xFF], BucketSize) > -1)
+					ResultStrings.Enqueue(x);
 			});
 
 			files = new ConcurrentBag<string>();
