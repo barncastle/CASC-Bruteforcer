@@ -38,7 +38,7 @@ namespace CASCBruteforcer.Bruteforcers
 		{
 			if (args.Length == 1 || string.IsNullOrWhiteSpace(args[1]) || args[1].Trim() == "%")
 				throw new ArgumentException("No filter provided.");
-			if (args[0].Count(x => x == '%') > 1)
+			if (args[1].Count(x => x == '%') > 1)
 				throw new ArgumentException("Filter can't have more than one wildcard character.");
 
 			// attempt to remove extensions
