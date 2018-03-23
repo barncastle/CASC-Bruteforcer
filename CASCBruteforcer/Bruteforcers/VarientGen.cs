@@ -25,6 +25,12 @@ namespace CASCBruteforcer.Bruteforcers
 		private ushort[] HashesLookup;
 		private ushort BucketSize;
 
+		readonly private string[] Unwanted = new[]
+		{
+			"\\EXPANSION00\\", "\\EXPANSION01\\", "\\EXPANSION02\\", "\\EXPANSION03\\", "\\EXPANSION04\\", "\\EXPANSION05\\",
+			"\\NORTHREND\\", "\\CATACLYSM\\", "\\PANDARIA\\", "\\OUTLAND\\","\\PANDAREN\\", "\\BAKEDNPCTEXTURES\\",
+		};
+
 		private ConcurrentQueue<string> ResultStrings;
 
 		public void LoadParameters(params string[] args)
@@ -59,6 +65,7 @@ namespace CASCBruteforcer.Bruteforcers
 			GenerateBakedTextures();
 			GenerateModelVariants();
 			GenerateSkins();
+			NumberSuffix();
 
 			if (DoLongRunning)
 			{
@@ -67,6 +74,7 @@ namespace CASCBruteforcer.Bruteforcers
 				GenerateBones();
 				GenerateWMOMinimaps();
 				GenerateMinimaps();
+				FolderMixMatch();
 			}
 
 			LogAndExport();
@@ -94,7 +102,8 @@ namespace CASCBruteforcer.Bruteforcers
 		{
 			string[] lineendings = new string[] { ".BLP", "_N.BLP" };
 
-			var basefiles = FileNames.Where(x => x.StartsWith("WORLD\\MAPTEXTURES\\") && x.EndsWith(".BLP")).Select(x => x.Replace("_N.BLP", ".BLP").Replace(".BLP", "")).Distinct();
+			var basefiles = FileNames.Where(x => x.StartsWith("WORLD\\MAPTEXTURES\\") && x.EndsWith(".BLP") && !Unwanted.Any(y => x.Contains(y)))
+									 .Select(x => x.Replace("_N.BLP", ".BLP").Replace(".BLP", "")).Distinct();
 
 			IEnumerable<string> files = Enumerable.Empty<string>();
 			Parallel.ForEach(lineendings, ext => files = files.Concat(basefiles.Select(x => x + ext)));
@@ -109,7 +118,7 @@ namespace CASCBruteforcer.Bruteforcers
 			string[] extensions = new string[] { ".BLP", ".WMO" };
 			string[] lineendings = new string[] { ".BLP", "_L.BLP", "_E.BLP" };
 
-			var basefiles = FileNames.Where(x => x.StartsWith("WORLD\\WMO\\") && HasExtension(x, extensions))
+			var basefiles = FileNames.Where(x => x.StartsWith("WORLD\\WMO\\") && HasExtension(x, extensions) && !Unwanted.Any(y => x.Contains(y)))
 									.Select(x => PathWithoutExtension(x)).Distinct();
 
 			IEnumerable<string> files = Enumerable.Empty<string>();
@@ -163,7 +172,8 @@ namespace CASCBruteforcer.Bruteforcers
 
 			string[] lineendings = new string[] { "_LOD1.WMO", "_LOD2.WMO", "_LOD1.BLP", "_LOD2.BLP", "_LOD1_L.BLP", "_LOD2_L.BLP", "_LOD1_E.BLP", "_LOD2_E.BLP" };
 
-			var basefiles = FileNames.Where(x => x.EndsWith(".WMO") && !regex.IsMatch(x)).Select(x => PathWithoutExtension(x).TrimEnd('_')).Distinct();
+			var basefiles = FileNames.Where(x => x.EndsWith(".WMO") && !Unwanted.Any(y => x.Contains(y)) && !regex.IsMatch(x))
+									 .Select(x => PathWithoutExtension(x).TrimEnd('_')).Distinct();
 
 			IEnumerable<string> files = Enumerable.Empty<string>();
 			Parallel.For(RangeStart, RangeEnd, i => files = files.Concat(basefiles.Select(x => x + "_" + i.ToString("000") + ".wmo")));
@@ -171,12 +181,12 @@ namespace CASCBruteforcer.Bruteforcers
 			Console.WriteLine("  Generating WMO Groups");
 			Validate(files);
 
-			foreach(var le in lineendings)
+			foreach (var le in lineendings)
 			{
 				IEnumerable<string> filesext = files.Select(x => PathWithoutExtension(x) + le);
 				filesext = filesext.Except(FileNames).Distinct();
 				Validate(filesext);
-			}			
+			}
 		}
 
 		private void GenerateTileSets()
@@ -186,7 +196,7 @@ namespace CASCBruteforcer.Bruteforcers
 				"_256.BLP", "_512.BLP", "_1024.BLP","_H.BLP", "_S.BLP", ".BLP",
 			};
 
-			var basefiles = FileNames.Where(x => x.EndsWith(".BLP") && x.StartsWith("TILESET")).Select(x =>
+			var basefiles = FileNames.Where(x => x.EndsWith(".BLP") && x.StartsWith("TILESET") && !Unwanted.Any(y => x.Contains(y))).Select(x =>
 			{
 				lineendings.ForEach(e => x = x.Replace(e, ""));
 				return x;
@@ -240,7 +250,7 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private void GenerateMinimaps()
 		{
-			var basefiles = FileNames.Where(x => x.StartsWith("WORLD\\MAPS\\")).Select(x => new DirectoryInfo(x).Parent.Name).Distinct();
+			var basefiles = FileNames.Where(x => x.StartsWith("WORLD\\MAPS\\") && !Unwanted.Any(y => x.Contains(y))).Select(x => new DirectoryInfo(x).Parent.Name).Distinct();
 			IEnumerable<string> lineendings = Enumerable.Range(0, 64 * 64).Select(x => $"\\MAP{(x / 64).ToString("00")}_{(x % 64).ToString("00")}.BLP");
 
 			Console.WriteLine("  Generating Minimaps");
@@ -259,13 +269,71 @@ namespace CASCBruteforcer.Bruteforcers
 
 			IEnumerable<string> lineendings = Enumerable.Range(0, RangeEnd * RangeEnd).Select(x => $"_{(x / RangeEnd).ToString("00")}_{(x % RangeEnd).ToString("00")}.BLP");
 
-			var basefiles = FileNames.Where(x => x.EndsWith(".WMO") && regex.IsMatch(x)).Select(x => PathWithoutExtension(x).Replace("WORLD\\WMO\\", "WORLD\\MINIMAPS\\WMO\\")).Distinct();
+			var basefiles = FileNames.Where(x => x.EndsWith(".WMO") && !Unwanted.Any(y => x.Contains(y)) && regex.IsMatch(x))
+									 .Select(x => PathWithoutExtension(x).Replace("WORLD\\WMO\\", "WORLD\\MINIMAPS\\WMO\\")).Distinct();
 
 			Console.WriteLine("  Generating WMO Minimaps");
 			foreach (var le in lineendings)
 			{
 				IEnumerable<string> files = basefiles.AsParallel().Select(x => x + le);
 				files = files.Except(FileNames).Distinct();
+				Validate(files);
+			}
+		}
+
+		private void FolderMixMatch()
+		{
+			Console.WriteLine("  Starting File/Folder Mixing");
+
+			var paths = FileNames.Where(x => !Unwanted.Any(y => x.Contains(y))).Select(x => Path.GetDirectoryName(x)).Distinct().ToArray();
+			var filenames = FileNames.Select(x => Path.GetFileName(x)).Distinct().ToArray();
+
+			Parallel.ForEach(Partitioner.Create(0, paths.Length), r =>
+			{
+				IEnumerable<string> files = Enumerable.Empty<string>();
+				for (int i = r.Item1; i < r.Item2; i++)
+					files = files.Concat(filenames.Select(x => Path.Combine(paths[i], x)));
+
+				files = files.Except(FileNames).Distinct();
+				Validate(files);
+			});
+		}
+
+		private void NumberSuffix()
+		{
+			const int LIMIT = 100;
+			int digits = (int)Math.Floor(Math.Log10(LIMIT) + 1);
+			Regex regex = new Regex(@"\d+$");
+
+			Console.WriteLine("  Generating Number Suffixes");
+
+			var filenames = FileNames.Where(x => !Unwanted.Any(y => x.Contains(y)));
+
+			for (int i = 0; i < digits; i++)
+			{
+				string format = new string('0', i + 1);
+
+				// add number suffix
+				var files = filenames.SelectMany(f =>
+				{
+					string ext = Path.GetExtension(f);
+					string p = PathWithoutExtension(f);
+					return Enumerable.Range(0, LIMIT).Select(x => p + x.ToString(format) + ext);
+
+				})
+				.Except(FileNames).Distinct();
+
+				Validate(files);
+
+				// remove old number suffix and add new
+				files = filenames.Where(x => regex.IsMatch(Path.GetFileNameWithoutExtension(x))).SelectMany(f =>
+				{
+					string ext = Path.GetExtension(f);
+					string p = regex.Replace(PathWithoutExtension(f), "");
+					return Enumerable.Range(0, LIMIT).Select(x => p + x.ToString(format) + ext);
+				})
+				.Except(FileNames).Distinct();
+
 				Validate(files);
 			}
 		}
