@@ -17,7 +17,7 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private ListfileHandler ListfileHandler;
 		private int MaxDepth;
-		private string[] FileFilter;
+		private List<string[]> FileFilter;
 		private string Extension;
 		private string[] FileNames;
 
@@ -41,12 +41,33 @@ namespace CASCBruteforcer.Bruteforcers
 			if (args[1].Count(x => x == '%') > 1)
 				throw new ArgumentException("Filter can't have more than one wildcard character.");
 
-			// attempt to remove extensions
-			string filter = Normalise(args[1].Trim());
-			if (filter.LastIndexOf('.') >= filter.Length - 5)
-				filter = filter.Substring(0, filter.LastIndexOf('.'));
+			FileFilter = new List<string[]>();
 
-			FileFilter = filter.Split(new[] { "%" }, StringSplitOptions.RemoveEmptyEntries);
+			if(File.Exists(args[1]))
+			{
+				var lines = File.ReadAllLines(args[1]);
+				foreach(var l in lines)
+				{
+					if (string.IsNullOrWhiteSpace(l))
+						continue;
+
+					// attempt to remove extensions
+					string filter = Normalise(l.Trim());
+					if (filter.LastIndexOf('.') >= filter.Length - 5)
+						filter = filter.Substring(0, filter.LastIndexOf('.'));
+
+					FileFilter.Add(filter.Split(new[] { "%" }, StringSplitOptions.RemoveEmptyEntries));
+				}
+			}
+			else
+			{
+				// attempt to remove extensions
+				string filter = Normalise(args[1].Trim());
+				if (filter.LastIndexOf('.') >= filter.Length - 5)
+					filter = filter.Substring(0, filter.LastIndexOf('.'));
+
+				FileFilter.Add(filter.Split(new[] { "%" }, StringSplitOptions.RemoveEmptyEntries));
+			}
 
 			if (args.Length > 2 && !string.IsNullOrWhiteSpace(args[2]))
 				Extension = Normalise("." + args[2].Trim().TrimStart('.'));
@@ -99,11 +120,8 @@ namespace CASCBruteforcer.Bruteforcers
 			Console.WriteLine("Loading Filenames...");
 
 			// load files we want to permute
-			var filterednames = FileNames.Where(x => !Unwanted.Any(y => x.Contains(y)) && FileFilter.All(y => x.Contains(y))).Distinct();
-
+			var filterednames = FileNames.Where(x => /*!Unwanted.Any(y => x.Contains(y)) &&*/ ContainsFilter(x)).Concat(FileFilter.SelectMany(x => x)).Distinct();
 			Queue<string> formattednames = new Queue<string>(filterednames);
-			if (formattednames.Count == 0)
-				throw new Exception($"No filenames match the provided filter `{FileFilter}`.");
 
 			Console.WriteLine($"Starting MixMatch ");
 			while (formattednames.Count > 0)
@@ -257,11 +275,26 @@ namespace CASCBruteforcer.Bruteforcers
 		#region Helpers
 		private string Normalise(string s) => s.Trim().Replace("/", "\\").ToUpperInvariant();
 
-		private string PathWithoutExtension(string s) => Path.Combine(Path.GetDirectoryName(s), Path.GetFileNameWithoutExtension(s));
+		private bool ContainsFilter(string x)
+		{
+			foreach(var filter in FileFilter)
+			{
+				if (filter.Length == 1)
+				{
+					if (x.Contains(filter[0]))
+						return true;
 
-		private bool HasExtension(string file, string[] extensions) => Array.BinarySearch(extensions, Path.GetExtension(file)) > -1;
+					continue;
+				}
 
-		private string TakeBeforeChar(string file, char c) => file.Contains(c) ? file.Substring(0, file.LastIndexOf(c)) : file;
+				int f1 = x.IndexOf(filter[0]), f2 = x.IndexOf(filter[1]);
+				if (f1 > -1 && f2 > -1 && f1 <= f2)
+					return true;
+			}
+			
+			return false;
+		}
+
 		#endregion
 	}
 }

@@ -319,7 +319,6 @@ namespace CASCBruteforcer.Bruteforcers
 					string ext = Path.GetExtension(f);
 					string p = PathWithoutExtension(f);
 					return Enumerable.Range(0, LIMIT).Select(x => p + x.ToString(format) + ext);
-
 				})
 				.Except(FileNames).Distinct();
 
