@@ -39,6 +39,9 @@ namespace CASCBruteforcer
 				case "mix":
 					hash = new MixMatch();
 					break;
+				case "markov":
+					hash = new MarkovChain();
+					break;
 				default:
 					throw new ArgumentException("Invalid hash type");
 			}

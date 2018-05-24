@@ -61,19 +61,19 @@ namespace CASCBruteforcer.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to 
-        ///// Defines
+        ///   Looks up a localized string similar to // Defines
         ///#define HASHES_SIZE {HASHES_SIZE}
-        ///#define BUCKET_SIZE {BUCKET_SIZE} // max count of hashes with the same initial byte
+        ///#define BUCKET_SIZE {BUCKET_SIZE} // max length of hashes grouped by first byte
         ///#define DATA_SIZE {DATA_SIZE}
         ///#define DATA_SIZE_MINUS (DATA_SIZE - 12)
+        ///#define HASH_PRIME (0xdeadbeef + {DATA_SIZE_REAL})
         ///#define OFFSETS_SIZE {OFFSETS_SIZE}
         ///#define NEXT_CHAR (1.0 / 39.0) // (1 / Charset.Length)
         ///
         ///// Constants
-        ///constant int Offsets[OFFSETS_SIZE] = { {OFFSETS} };
+        ///constant uint Offsets[OFFSETS_SIZE] = { {OFFSETS} };
         ///constant char Charset[39] = &quot;ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_- &quot;;
-        ///constant ulong HashLookup[HASHES_SIZE] = { {HASHES} }; // hashes to fin [rest of string was truncated]&quot;;.
+        ///constant ulong HashLooku [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string Jenkins {
             get {
@@ -96,14 +96,14 @@ namespace CASCBruteforcer.Properties {
         ///	return (bits &lt;&lt; amount) | (bits &gt;&gt; (32 - amount));
         ///}
         ///
-        ///void Salsa20_Transform(uint *dancers) {
+        ///void salsa20(uint *dancers) {
         ///	
         ///	uint x[16];
         ///
         ///	#ifdef opencl_unroll_hint
         ///	__attribute__((opencl_unroll_hint))
         ///	#endif
-        ///	fo [rest of string was truncated]&quot;;.
+        ///	for(uint i = [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string Salsa {
             get {

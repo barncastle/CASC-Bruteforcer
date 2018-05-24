@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>CASCBruteforcer</RootNamespace>
     <AssemblyName>CASCBruteforcer</AssemblyName>
-    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <NuGetPackageImportStamp>
@@ -82,6 +82,9 @@
       <HintPath>..\packages\Sourceforge.Cloo.0.9.1\lib\net35\Cloo.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Markov, Version=2.0.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Markov.2.0.1-ci0001\lib\net35\Markov.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
@@ -93,6 +96,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Bruteforcers\MarkovChain.cs" />
     <Compile Include="Bruteforcers\MixMatch.cs" />
     <Compile Include="Bruteforcers\VarientGen.cs" />
     <Compile Include="Bruteforcers\Wordlist.cs" />
