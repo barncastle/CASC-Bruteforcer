@@ -74,7 +74,7 @@ namespace CASCBruteforcer.Bruteforcers
 			{
 				throw new Exception("Unable to generate a wordlist.");
 			}
-			
+
 			// init variables
 			ResultStrings = new ConcurrentQueue<string>();
 			ParseHashes();

@@ -85,7 +85,7 @@ namespace CASCBruteforcer.Bruteforcers
 		private void GenerateMaps()
 		{
 			string[] extensions = new string[] { ".TEX", ".WDL", ".WDT" };
-			string[] lineendings = new string[] { "_OCC.WDT", "_LGT.WDT", "_FOGS.WDT" };
+			string[] lineendings = new string[] { "_OCC.WDT", "_LGT.WDT", "_FOGS.WDT", "_MPV.WDT" };
 
 			var basefiles = FileNames.Where(x => x.StartsWith("WORLD\\MAPS\\") && x.EndsWith(".WDT")).Distinct();
 

@@ -43,10 +43,10 @@ namespace CASCBruteforcer.Bruteforcers
 
 			FileFilter = new List<string[]>();
 
-			if(File.Exists(args[1]))
+			if (File.Exists(args[1]))
 			{
 				var lines = File.ReadAllLines(args[1]);
-				foreach(var l in lines)
+				foreach (var l in lines)
 				{
 					if (string.IsNullOrWhiteSpace(l))
 						continue;
@@ -54,7 +54,10 @@ namespace CASCBruteforcer.Bruteforcers
 					// attempt to remove extensions
 					string filter = Normalise(l.Trim());
 					if (filter.LastIndexOf('.') >= filter.Length - 5)
+					{
+						Extension = Normalise(filter.Substring(filter.LastIndexOf('.')));
 						filter = filter.Substring(0, filter.LastIndexOf('.'));
+					}
 
 					FileFilter.Add(filter.Split(new[] { "%" }, StringSplitOptions.RemoveEmptyEntries));
 				}
@@ -64,7 +67,10 @@ namespace CASCBruteforcer.Bruteforcers
 				// attempt to remove extensions
 				string filter = Normalise(args[1].Trim());
 				if (filter.LastIndexOf('.') >= filter.Length - 5)
+				{
+					Extension = Normalise(filter.Substring(filter.LastIndexOf('.')));
 					filter = filter.Substring(0, filter.LastIndexOf('.'));
+				}
 
 				FileFilter.Add(filter.Split(new[] { "%" }, StringSplitOptions.RemoveEmptyEntries));
 			}
@@ -122,6 +128,7 @@ namespace CASCBruteforcer.Bruteforcers
 			// load files we want to permute
 			var filterednames = FileNames.Where(x => /*!Unwanted.Any(y => x.Contains(y)) &&*/ ContainsFilter(x)).Concat(FileFilter.SelectMany(x => x)).Distinct();
 			Queue<string> formattednames = new Queue<string>(filterednames);
+			HashSet<string> usedBaseNames = new HashSet<string>();
 
 			Console.WriteLine($"Starting MixMatch ");
 			while (formattednames.Count > 0)
@@ -138,6 +145,10 @@ namespace CASCBruteforcer.Bruteforcers
 				for (int i = 0; i <= _s && i <= MaxDepth; i++)
 				{
 					string temp = "\\" + string.Join("_", parts.Skip(i).Reverse());
+
+					if (usedBaseNames.Contains(path + temp))
+						continue;
+
 					Parallel.ForEach(endings, e =>
 					{
 						queue.Add(path + temp + e);
@@ -145,6 +156,7 @@ namespace CASCBruteforcer.Bruteforcers
 					});
 
 					Validate(ref queue);
+					usedBaseNames.Add(path + temp);
 				}
 			}
 		}
@@ -277,7 +289,7 @@ namespace CASCBruteforcer.Bruteforcers
 
 		private bool ContainsFilter(string x)
 		{
-			foreach(var filter in FileFilter)
+			foreach (var filter in FileFilter)
 			{
 				if (filter.Length == 1)
 				{
@@ -291,7 +303,7 @@ namespace CASCBruteforcer.Bruteforcers
 				if (f1 > -1 && f2 > -1 && f1 <= f2)
 					return true;
 			}
-			
+
 			return false;
 		}
 
