@@ -105,7 +105,6 @@ namespace CASCBruteforcer.Bruteforcers
 			IsBenchmark = true;
 		}
 
-
 		public void Start()
 		{
 			for (int i = 0; i < Masks.Length; i++)
@@ -190,6 +189,10 @@ namespace CASCBruteforcer.Bruteforcers
 			if (cl.HasNVidia && maskoffsets.Length > 7)
 				BASE_GLOBAL_WORKSIZE -= (maskoffsets.Length - 7) * 613566752;
 
+			string total = COMBINATIONS.ToString("#,##0,,M", CultureInfo.InvariantCulture);
+			var TOTAL = COMBINATIONS;
+			BigInteger COMPLETED = 0;
+
 			if (COMBINATIONS > BASE_GLOBAL_WORKSIZE)
 			{
 				GLOBAL_WORKSIZE = (long)ReduceTo(BASE_GLOBAL_WORKSIZE, WARP_SIZE);
@@ -206,12 +209,26 @@ namespace CASCBruteforcer.Bruteforcers
 					// - if the exit event is fired twice it'll just force close
 					CleanExitHandler.IsProcessing = ComputeDevice.HasFlag(ComputeDeviceTypes.Gpu);
 					Enqueue(cl.InvokeReturn<ulong>(GLOBAL_WORKSIZE, null, bufferSize));
+
 					CleanExitHandler.ProcessExit();
 
-					if (i == 0)
-						LogEstimation(LOOPS, time.Elapsed.TotalSeconds);
-
 					COMBINATIONS -= GLOBAL_WORKSIZE;
+					COMPLETED += GLOBAL_WORKSIZE;
+
+					if ((BigInteger)time.Elapsed.TotalSeconds != 0)
+					{
+						string completed = (i * GLOBAL_WORKSIZE).ToString("#,##0,,M", CultureInfo.InvariantCulture);
+						var speed = COMPLETED / (BigInteger)time.Elapsed.TotalSeconds;
+						string hps = speed.ToString("#,##0,,M", CultureInfo.InvariantCulture);
+						string percentage =
+							((double)COMPLETED / (double)TOTAL).ToString("P4", CultureInfo.InvariantCulture);
+						BigInteger left = TOTAL - COMPLETED;
+						var seconds_left = (left / speed);
+						TimeSpan t = TimeSpan.FromSeconds((double)seconds_left);
+						string eta = $"{(int)t.TotalHours}:{t:mm}:{t:ss}";
+						Console.WriteLine("{0} out of {1} completed ({2}), {3} hash/sec, ETA: {4}", completed, total,
+							percentage, hps, eta);
+					}
 				}
 			}
 
@@ -237,19 +254,7 @@ namespace CASCBruteforcer.Bruteforcers
 		private BigInteger AlignTo(BigInteger source, BigInteger factor) => (source + (factor - source % factor) % factor);
 		private BigInteger ReduceTo(BigInteger source, BigInteger factor) => source - (source % factor);
 
-
 		#region Validation
-		private void LogEstimation(long loops, double seconds)
-		{
-			Task.Run(() =>
-			{
-				DateTime estimate = DateTime.Now;
-				for (uint x = 0; x < loops; x++)
-					estimate = estimate.AddSeconds(seconds);
-				Console.WriteLine($" Estimated Completion {estimate}");
-			});
-		}
-
 		private void Enqueue(ulong[] results)
 		{
 			// dump everything into a collection and deal with it later
