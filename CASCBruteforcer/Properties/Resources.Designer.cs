@@ -19,7 +19,7 @@ namespace CASCBruteforcer.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -108,6 +108,26 @@ namespace CASCBruteforcer.Properties {
         internal static string Salsa {
             get {
                 return ResourceManager.GetString("Salsa", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to // Defines
+        ///#define HASHES_SIZE {HASHES_SIZE}
+        ///#define BUCKET_SIZE {BUCKET_SIZE} // max length of hashes grouped by first byte
+        ///#define DATA_SIZE {DATA_SIZE_REAL}
+        ///#define OFFSETS_SIZE {OFFSETS_SIZE}
+        ///#define NEXT_CHAR (1.0 / 26.0) // (1 / Charset.Length)
+        ///
+        ///// Constants
+        ///constant uint Offsets[OFFSETS_SIZE] = { {OFFSETS} };
+        ///constant char Charset[26] = &quot;ABCDEFGHIJKLMNOPQRSTUVWXYZ&quot;;
+        ///constant uint HashLookup[HASHES_SIZE] = { {HASHES} }; // hashes to find, sorted by first byte
+        ///constant ushort HashOffsets[256 [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string Table {
+            get {
+                return ResourceManager.GetString("Table", resourceCulture);
             }
         }
     }

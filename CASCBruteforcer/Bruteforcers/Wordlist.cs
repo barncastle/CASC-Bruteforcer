@@ -23,9 +23,7 @@ namespace CASCBruteforcer.Bruteforcers
 		private string[] Words;
 		private uint ParallelFactor = 0;
 
-		private ulong[] TargetHashes;
-		private ushort[] HashesLookup;
-		private ushort BucketSize;
+		private HashSet<ulong> TargetHashes;
 
 		private ConcurrentQueue<string> ResultStrings;
 
@@ -113,7 +111,7 @@ namespace CASCBruteforcer.Bruteforcers
 				{
 					string temp = Normalise(mask.Replace("%", x));
 					ulong hash = new JenkinsHash().ComputeHash(temp);
-					if (Array.IndexOf(TargetHashes, hash, HashesLookup[hash & 0xFF], BucketSize) > -1)
+					if (TargetHashes.Contains(hash))
 						ResultStrings.Enqueue(temp);
 				});
 			}
@@ -123,7 +121,7 @@ namespace CASCBruteforcer.Bruteforcers
 
 				var found = from word in Words.Select(x => Normalise(mask.Replace("%", x)))
 							let h = j.ComputeHash(word)
-							where Array.IndexOf(TargetHashes, h, HashesLookup[h & 0xFF], BucketSize) > -1
+							where TargetHashes.Contains(h)
 							select word;
 
 				foreach (var f in found)
@@ -214,29 +212,11 @@ namespace CASCBruteforcer.Bruteforcers
 				hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), out dump)).Select(x => dump)); // standard
 				hashes = hashes.Distinct().OrderBy(Jenkins96.HashSort).ThenBy(x => x);
 
-				TargetHashes = hashes.ToArray();
-
-				BuildLookup();
+				TargetHashes = hashes.ToHashSet();
 			}
 
-			if (TargetHashes == null || TargetHashes.Length < 1)
+			if (TargetHashes == null || TargetHashes.Count < 1)
 				throw new ArgumentException("Unknown listfile is missing or empty");
-		}
-
-		private void BuildLookup()
-		{
-			var buckets = TargetHashes.GroupBy(Jenkins96.HashSort).OrderBy(x => x.Key).ToDictionary(x => x.Key, x => (ushort)x.Count());
-			HashesLookup = new ushort[256]; // offset of each first byte
-			BucketSize = buckets.Max(x => x.Value);
-
-			ushort count = 0;
-			foreach (var bucket in buckets)
-			{
-				HashesLookup[bucket.Key] = count;
-				count += bucket.Value;
-			}
-
-			Array.Resize(ref TargetHashes, TargetHashes.Length + BucketSize);
 		}
 
 		#endregion

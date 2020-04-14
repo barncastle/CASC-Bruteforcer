@@ -65,3 +65,21 @@ For a list of common filename structures [see here](https://wowdev.wiki/Filename
 #### Examples
 To find `world/maps/gilneas/gilneas.tex`:
 >cascbruteforcer "wordlist" "world/maps/gilneas/%.tex"
+
+## DB2 TableHash
+
+The tablehash implementation uses index based permutations and a template to attempt to match unknown table name hashes ([source](<https://wowdev.wiki/DB2#Table_Hashes>)). 
+Note: The `template` argument can also be a .txt file containing multiple wildcard strings.
+
+#### Arguments
+
+1. Mode (string) - "db2"
+2. Device (string) - "gpu", "cpu" or "all"
+3. Template (string) -  a file path to a list of templates or a single template using `%` as wildcard characters
+4. Target Hashes (string) - a comma or space separated list of tablehashes
+
+#### Examples
+
+For itemSparse.db2 which has a hash of 0x919BE54E:
+
+> cascbruteforcer "db2" "gpu" "item%%%%%%" "0x919BE54E"

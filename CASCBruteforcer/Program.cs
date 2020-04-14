@@ -42,6 +42,9 @@ namespace CASCBruteforcer
 				case "markov":
 					hash = new MarkovChain();
 					break;
+				case "db2":
+					hash = new DBTableHash();
+					break;
 				default:
 					throw new ArgumentException("Invalid hash type");
 			}

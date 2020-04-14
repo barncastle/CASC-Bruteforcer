@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>CASCBruteforcer</RootNamespace>
     <AssemblyName>CASCBruteforcer</AssemblyName>
-    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <NuGetPackageImportStamp>
@@ -96,6 +96,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Bruteforcers\DBTableHash.cs" />
     <Compile Include="Bruteforcers\MarkovChain.cs" />
     <Compile Include="Bruteforcers\MixMatch.cs" />
     <Compile Include="Bruteforcers\VarientGen.cs" />
@@ -108,6 +109,7 @@
     <Compile Include="Bruteforcers\Jenkins96.cs" />
     <Compile Include="Bruteforcers\Salsa20.cs" />
     <Compile Include="Helpers\KernelWriter.cs" />
+    <Compile Include="Helpers\TableHash.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
@@ -146,7 +148,11 @@
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Resources\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

@@ -13,21 +13,16 @@ using System.Net;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
-
 namespace CASCBruteforcer.Bruteforcers
 {
-	class Jenkins96 : IHash
+    class DBTableHash : IHash
 	{
 		private long BASE_GLOBAL_WORKSIZE = uint.MaxValue - 63; // sizeof(size_t) usually uint, aligned to % 64 warp
 
-		const string CHECKFILES_URL = "https://bnet.marlam.in/checkFiles.php";
-
-		private ListfileHandler ListfileHandler;
 		private ComputeDeviceTypes ComputeDevice;
 		private string[] Masks;
-		private HashSet<ulong> TargetHashes;
+		private HashSet<uint> TargetHashes;
 		private bool IsBenchmark = false;
-		private bool IsMirrored = false;
 
 		private Queue<ulong> ResultQueue;
 		private HashSet<string> ResultStrings;
@@ -68,14 +63,9 @@ namespace CASCBruteforcer.Bruteforcers
 			if (Masks == null || Masks.Length == 0)
 				throw new ArgumentException("No valid masks");
 
-			// check for mirrored flag
-			IsMirrored = (args.Length > 3 && args[3].Trim() == "1");
-
-			// grab any listfile filters
-			string product = args.Length > 4 ? args[4] : "";
-			string exclusions = args.Length > 5 ? args[5] : "";
-			ListfileHandler = new ListfileHandler(product, exclusions);
-
+			if (args.Length > 2)
+				ParseHashes(args[3]);
+			
 			ResultQueue = new Queue<ulong>();
 			ResultStrings = new HashSet<string>();
 			IsBenchmark = false;
@@ -99,7 +89,6 @@ namespace CASCBruteforcer.Bruteforcers
 
 			Masks = new string[] { Normalise(mask) };
 
-			ListfileHandler = new ListfileHandler();
 			ResultQueue = new Queue<ulong>();
 			ResultStrings = new HashSet<string>();
 			IsBenchmark = true;
@@ -117,7 +106,6 @@ namespace CASCBruteforcer.Bruteforcers
 		private void Run(int m)
 		{
 			string mask = Masks[m];
-			ParseHashes(mask);
 
 			// handle templates without wildcards
 			if (!mask.Contains('%'))
@@ -127,40 +115,18 @@ namespace CASCBruteforcer.Bruteforcers
 				return;
 			}
 
-			// resize mask to next % 12 for faster jenkins
 			byte[] maskdata = Encoding.ASCII.GetBytes(mask);
-			Array.Resize(ref maskdata, (int)AlignTo(mask.Length, 12));
 
 			// calculate the indicies of the wildcard chars
 			byte[] maskoffsets = Enumerable.Range(0, mask.Length).Where(i => mask[i] == '%').Select(i => (byte)i).ToArray();
-			if (maskoffsets.Length > 12 * (IsMirrored ? 2 : 1))
+			if (maskoffsets.Length > 12)
 			{
-				Console.WriteLine($"Error: Too many wildcards - maximum is {12 * (IsMirrored ? 2 : 1)}. `{mask}`");
+				Console.WriteLine($"Error: Too many wildcards - maximum is {12}. `{mask}`");
 				return;
-			}
-
-			// mirrored is two indentical masks so must have an even count of wildcards
-			if (IsMirrored && maskoffsets.Length % 2 != 0)
-			{
-				Console.WriteLine($"Error: Mirrored flag used with an odd number of wildcards. `{mask}`");
-				return;
-			}
-
-			// reorder mirrored indices for faster permutation computing
-			if (IsMirrored)
-			{
-				int halfcount = maskoffsets.Length / 2;
-				byte[] temp = new byte[maskoffsets.Length];
-				for (int i = 0; i < halfcount; i++)
-				{
-					temp[i * 2] = maskoffsets[i];
-					temp[(i * 2) + 1] = maskoffsets[halfcount + i];
-				}
-				maskoffsets = temp;
 			}
 
 			// replace kernel placeholders - faster than using buffers
-			KernelWriter kernel = new KernelWriter(Properties.Resources.Jenkins);
+			KernelWriter kernel = new KernelWriter(Properties.Resources.Table);
 			kernel.ReplaceArray("DATA", maskdata);
 			kernel.ReplaceArray("OFFSETS", maskoffsets);
 			kernel.Replace("DATA_SIZE_REAL", mask.Length);
@@ -169,19 +135,19 @@ namespace CASCBruteforcer.Bruteforcers
 			// load CL - filter contexts to the specific device type
 			MultiCL cl = new MultiCL(ComputeDevice);
 			Console.WriteLine($"Loading kernel - {TargetHashes.Count - 1} hashes");
-			cl.SetKernel(kernel.ToString(), IsMirrored ? "BruteforceMirrored" : "Bruteforce");
+			cl.SetKernel(kernel.ToString(), "Bruteforce");
 
 			// output buffer arg
 			int bufferSize = (TargetHashes.Count + (8 - TargetHashes.Count % 8) % 8); // buffer should be 64 byte aligned
 			var resultArg = CLArgument<ulong>.CreateReturn(bufferSize);
 
 			// alignment calculations			
-			BigInteger COMBINATIONS = BigInteger.Pow(39, maskoffsets.Length / (IsMirrored ? 2 : 1)); // calculate combinations
+			BigInteger COMBINATIONS = BigInteger.Pow(26, maskoffsets.Length); // calculate combinations
 			long GLOBAL_WORKSIZE = 0, LOOPS = 0;
 			long WARP_SIZE = cl.WarpSize;
 
 			// Start the work
-			Console.WriteLine($"Starting Jenkins Hashing :: {COMBINATIONS} combinations ");
+			Console.WriteLine($"Starting DB Table Hashing :: {COMBINATIONS} combinations ");
 			Stopwatch time = Stopwatch.StartNew();
 
 			COMBINATIONS = AlignTo(COMBINATIONS, WARP_SIZE); // align to the warp size
@@ -263,41 +229,13 @@ namespace CASCBruteforcer.Bruteforcers
 			char[] maskdata = mask.ToCharArray();
 
 			// sanity check the results
-			var j = new JenkinsHash();
+			var j = new TableHash();
 			while (ResultQueue.Count > 0)
 			{
-				string s = StringGenerator.Generate(maskdata, ResultQueue.Dequeue(), maskoffsets, 39, IsMirrored);
-				ulong h = j.ComputeHash(s);
+				string s = StringGenerator.Generate(maskdata, ResultQueue.Dequeue(), maskoffsets, 26);
+				uint h = j.ComputeHash(s);
 				if (TargetHashes.Contains(h))
 					ResultStrings.Add(s);
-			}
-		}
-
-		private void PostResults()
-		{
-			const int TAKE = 20000;
-
-			int count = (int)Math.Ceiling(ResultStrings.Count / (float)TAKE);
-			for (int i = 0; i < count; i++)
-			{
-				try
-				{
-					byte[] data = Encoding.ASCII.GetBytes("files=" + string.Join("\r\n", ResultStrings.Skip(i * TAKE).Take(TAKE)));
-
-					HttpWebRequest req = (HttpWebRequest)WebRequest.Create(CHECKFILES_URL);
-					req.Method = "POST";
-					req.ContentType = "application/x-www-form-urlencoded";
-					req.ContentLength = data.Length;
-					req.UserAgent = "CASCBruteforcer/1.0 (+https://github.com/barncastle/CASC-Bruteforcer)"; // for tracking purposes
-					using (var stream = req.GetRequestStream())
-					{
-						stream.Write(data, 0, data.Length);
-						req.GetResponse(); // send the post
-					}
-
-					req.Abort();
-				}
-				catch { }
 			}
 		}
 
@@ -321,9 +259,6 @@ namespace CASCBruteforcer.Bruteforcers
 						foreach (var r in ResultStrings)
 							sw.WriteLine(r.Replace("\\", "/").ToLower());
 					}
-
-					// post to Marlamin's site
-					PostResults();
 				}
 			}
 
@@ -335,25 +270,19 @@ namespace CASCBruteforcer.Bruteforcers
 		#region Unknown Hash Functions
 		private void ParseHashes(string mask)
 		{
-			bool parseListfile = ListfileHandler.GetUnknownListfile("unk_listfile.txt", mask);
-
-			string[] lines = new string[0];
-
-			// sanity check it actually exists
-			if (File.Exists("unk_listfile.txt"))
-				lines = File.ReadAllLines("unk_listfile.txt");
+			var lines = mask.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
 
 			// parse items - hex and standard because why not
-			ulong dump = 0;
-			IEnumerable<ulong> hashes = new ulong[1]; // 0 hash is used as a dump
+			uint dump = 0;
+			IEnumerable<uint> hashes = new uint[1]; // 0 hash is used as a dump
 #if DEBUG
-			hashes = hashes.Concat(new ulong[] { 4097458660625243137, 13345699920692943597 }); // test hashes for the README examples
+			hashes = hashes.Concat(new uint[] { 2442913102 }); // test hashes for the README examples
 #endif
-			hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), NumberStyles.HexNumber, null, out dump)).Select(x => dump)); // hex
-			hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), out dump)).Select(x => dump)); // standard
+			hashes = hashes.Concat(lines.Where(x => uint.TryParse(x.Trim(), NumberStyles.HexNumber, null, out dump)).Select(x => dump)); // hex
+			hashes = hashes.Concat(lines.Where(x => uint.TryParse(x.Trim(), out dump)).Select(x => dump)); // standard
 			hashes = hashes.Distinct().OrderBy(HashSort); // order by first byte - IMPORTANT
 
-			TargetHashes = new HashSet<ulong>(hashes);
+			TargetHashes = new HashSet<uint>(hashes);
 
 			if (TargetHashes == null || TargetHashes.Count <= 1)
 				throw new ArgumentException("Unknown listfile is missing or empty");
@@ -364,7 +293,7 @@ namespace CASCBruteforcer.Bruteforcers
 		#region Helpers
 		private string Normalise(string s) => s.Trim().Replace("/", "\\").ToUpperInvariant();
 
-		public static Func<ulong, ulong> HashSort = (x) => x & 0xFF;
+		public static Func<uint, uint> HashSort = (x) => x & 0xFF;
 		#endregion
 	}
 }

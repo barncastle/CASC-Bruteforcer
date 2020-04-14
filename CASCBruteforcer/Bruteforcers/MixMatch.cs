@@ -28,10 +28,7 @@ namespace CASCBruteforcer.Bruteforcers
 			"WORLD\\MAPTEXTURES\\", "WORLD\\MINIMAPS\\", "CHARACTER\\", "\\BAKEDNPCTEXTURES\\", "COMPONENTS\\"
 		};
 
-		private ulong[] TargetHashes;
-		private ushort[] HashesLookup;
-		private ushort BucketSize;
-
+		private HashSet<ulong> TargetHashes;
 		private ConcurrentQueue<string> ResultStrings;
 
 		public void LoadParameters(params string[] args)
@@ -125,16 +122,17 @@ namespace CASCBruteforcer.Bruteforcers
 
 			Console.WriteLine("Loading Filenames...");
 
-			// load files we want to permute
-			var filterednames = FileNames.Where(x => /*!Unwanted.Any(y => x.Contains(y)) &&*/ ContainsFilter(x)).Concat(FileFilter.SelectMany(x => x)).Distinct();
-			Queue<string> formattednames = new Queue<string>(filterednames);
+            // load files we want to permute
+            var filterednames = FileNames.Where(x => /*!Unwanted.Any(y => x.Contains(y)) &&*/ ContainsFilter(x))
+                                         .Concat(FileFilter.SelectMany(x => x))
+                                         .Distinct();
+
+            Queue<string> formattednames = new Queue<string>(filterednames);
 			HashSet<string> usedBaseNames = new HashSet<string>();
 
 			Console.WriteLine($"Starting MixMatch ");
 			while (formattednames.Count > 0)
 			{
-				ConcurrentBag<string> queue = new ConcurrentBag<string>();
-
 				string o = formattednames.Dequeue();
 				int _s = o.Length - o.Replace("_", "").Length; // underscore count
 
@@ -151,11 +149,10 @@ namespace CASCBruteforcer.Bruteforcers
 
 					Parallel.ForEach(endings, e =>
 					{
-						queue.Add(path + temp + e);
-						queue.Add(path + "_" + temp + e);
+						Validate(path + temp + e);
+						Validate(path + "_" + temp + e);
 					});
 
-					Validate(ref queue);
 					usedBaseNames.Add(path + temp);
 				}
 			}
@@ -163,17 +160,12 @@ namespace CASCBruteforcer.Bruteforcers
 
 
 		#region Validation
-		private void Validate(ref ConcurrentBag<string> files)
+		private void Validate(string file)
 		{
-			Parallel.ForEach(files, x =>
-			{
-				var j = new JenkinsHash();
-				ulong hash = j.ComputeHash(x);
-				if (Array.IndexOf(TargetHashes, hash, HashesLookup[hash & 0xFF], BucketSize) > -1)
-					ResultStrings.Enqueue(x);
-			});
-
-			files = new ConcurrentBag<string>();
+			var j = new JenkinsHash();
+			ulong hash = j.ComputeHash(file);
+			if (TargetHashes.Contains(hash))
+				ResultStrings.Enqueue(file);
 		}
 
 		private void PostResults()
@@ -257,29 +249,11 @@ namespace CASCBruteforcer.Bruteforcers
 				hashes = hashes.Concat(lines.Where(x => ulong.TryParse(x.Trim(), out dump)).Select(x => dump)); // standard
 				hashes = hashes.Distinct().OrderBy(Jenkins96.HashSort).ThenBy(x => x);
 
-				TargetHashes = hashes.ToArray();
-
-				BuildLookup();
+				TargetHashes = hashes.ToHashSet();                
 			}
 
-			if (TargetHashes == null || TargetHashes.Length < 1)
+			if (TargetHashes == null || TargetHashes.Count < 1)
 				throw new ArgumentException("Unknown listfile is missing or empty");
-		}
-
-		private void BuildLookup()
-		{
-			var buckets = TargetHashes.GroupBy(Jenkins96.HashSort).OrderBy(x => x.Key).ToDictionary(x => x.Key, x => (ushort)x.Count());
-			HashesLookup = new ushort[256]; // offset of each first byte
-			BucketSize = buckets.Max(x => x.Value);
-
-			ushort count = 0;
-			foreach (var bucket in buckets)
-			{
-				HashesLookup[bucket.Key] = count;
-				count += bucket.Value;
-			}
-
-			Array.Resize(ref TargetHashes, TargetHashes.Length + BucketSize);
 		}
 
 		#endregion

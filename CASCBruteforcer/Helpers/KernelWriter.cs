@@ -53,6 +53,26 @@ namespace CASCBruteforcer.Helpers
 			ReplaceArray("HASHES", array.Select(x => x + "UL")); 
 		}
 
+		public void ReplaceOffsetArray(IEnumerable<uint> array)
+		{
+			var buckets = array.GroupBy(DBTableHash.HashSort).OrderBy(x => x.Key).ToDictionary(x => x.Key, x => (ushort)x.Count());
+			ushort[] offsets = new ushort[256]; // offset of each first byte
+			int maxbucket = buckets.Max(x => x.Value);
+
+			ushort count = 0;
+			foreach (var bucket in buckets)
+			{
+				offsets[bucket.Key] = count;
+				count += bucket.Value;
+			}
+
+			Replace("BUCKET_SIZE", maxbucket); // biggest bucket size
+			Replace("HASH_OFFSETS", string.Join(",", offsets));
+
+			// apply hashes + pad to bucket size, prefix UL to remove the warnings..
+			ReplaceArray("HASHES", array.Select(x => x + "U"));
+		}
+
 
 		public override string ToString() => kernel;
 	}
